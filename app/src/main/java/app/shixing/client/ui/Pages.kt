@@ -1,4 +1,4 @@
-package app.shixing.client.ui
+﻿package app.shixing.client.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -21,6 +21,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ThumbUp
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -47,6 +50,7 @@ import androidx.compose.ui.unit.sp
 import app.shixing.client.BuildConfig
 import app.shixing.client.data.BoardMap
 import app.shixing.client.data.ChatResp
+import app.shixing.client.data.Groups
 import app.shixing.client.data.Msg
 import app.shixing.client.data.MyMap
 import java.util.Locale
@@ -76,12 +80,32 @@ fun CrossingsPage(vm: MainViewModel, s: UiState) {
             ErrorBar(it)
         }
 
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(12.dp))
         if (s.crossings.isEmpty()) {
             Empty("还没有星轨相交。去 VRChat 里逛逛，遇到的人会记在这里。")
         } else {
+            Row(
+                Modifier.padding(bottom = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Pill("${s.crossings.size} 颗星", Color(0x1F4DB4FF), MaterialTheme_color.accent, size = 11)
+                s.crossings.count { it.mutual }.let {
+                    if (it > 0) Pill("$it 个互相连上", Color(0x1F2FD08A), Color(0xFF2FD08A), size = 11)
+                }
+            }
+            var lastDay: String? = null
             s.crossings.forEach { c ->
-                BoxCard {
+                val day = clock(c.at).substringBefore(" ")
+                if (day.isNotBlank() && day != lastDay) {
+                    lastDay = day
+                    Text(
+                        day,
+                        fontSize = 11.sp,
+                        color = MaterialTheme_color.ink3,
+                        modifier = Modifier.padding(start = 4.dp, bottom = 8.dp, top = 4.dp),
+                    )
+                }
+                BoxCard(tint = Color(Groups.color(c.group))) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Avatar(c.name, c.group, 38.dp)
                         Spacer(Modifier.width(10.dp))
@@ -173,7 +197,7 @@ fun PostsPage(vm: MainViewModel, s: UiState) {
             Empty("还没有动态。")
         } else {
             s.posts.forEach { p ->
-                BoxCard {
+                BoxCard(tint = Color(Groups.color(p.author?.group))) {
                     val who = p.author?.name ?: if (p.kind == "official") "星遇同频" else "一颗星"
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Avatar(who, p.author?.group, 32.dp)
@@ -203,10 +227,17 @@ fun PostsPage(vm: MainViewModel, s: UiState) {
                             MaterialTheme_color.ink2,
                         )
                     }
-                    Spacer(Modifier.height(10.dp))
-                    Row {
-                        Text("点亮 ${p.lit}", fontSize = 12.sp, color = MaterialTheme_color.ink2)
-                        Spacer(Modifier.width(14.dp))
+                    Spacer(Modifier.height(12.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Filled.ThumbUp,
+                            contentDescription = null,
+                            tint = MaterialTheme_color.ink3,
+                            modifier = Modifier.size(14.dp),
+                        )
+                        Spacer(Modifier.width(5.dp))
+                        Text("${p.lit}", fontSize = 12.sp, color = MaterialTheme_color.ink2)
+                        Spacer(Modifier.width(16.dp))
                         Text("评论 ${p.cmts}", fontSize = 12.sp, color = MaterialTheme_color.ink2)
                         Spacer(Modifier.weight(1f))
                         if (p.author != null && !p.mine) {
@@ -215,10 +246,10 @@ fun PostsPage(vm: MainViewModel, s: UiState) {
                                 Modifier
                                     .clip(RoundedCornerShape(10.dp))
                                     .clickable { vm.link(p.author!!.n, "yq", p.id) { m -> vm.showHint(m) } }
-                                    .background(MaterialTheme_color.card2)
+                                    .background(Color(0x1F4DB4FF))
                                     .padding(horizontal = 12.dp, vertical = 5.dp),
                                 fontSize = 12.sp,
-                                color = MaterialTheme_color.ink,
+                                color = MaterialTheme_color.accent,
                             )
                         }
                     }

@@ -26,11 +26,14 @@ import androidx.compose.foundation.verticalScroll
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -152,11 +155,13 @@ object MaterialTheme_color {
     val bg = Color(0xFF05060A)
     val card = Color(0xFF11141F)
     val card2 = Color(0xFF1A1F2E)
-    val ink = Color(0xFFF2F4F8)
-    val ink2 = Color(0xFF9AA3B5)
+    val ink = Color(0xFFF3F4F8)
+    val ink2 = Color(0xFFAAB0C4)
+    val ink3 = Color(0xFF6B7189)
     val accent = Color(0xFF4DB4FF)
+    val accentDeep = Color(0xFF0397FE)
     val accent2 = Color(0xFFD69BFF)
-    val line = Color(0x22FFFFFF)
+    val line = Color(0x21FFFFFF)
     val warn = Color(0xFFFF7A7A)
 }
 
@@ -167,48 +172,47 @@ private fun Modifier.statusBarsPaddingIfNeeded(): Modifier = this
 @Composable
 private fun BottomBar(current: Int, onPick: (Int) -> Unit) {
     val items: List<Pair<String, ImageVector>> = listOf(
-        "今天" to Icons.Filled.Notifications,
-        "连向我" to Icons.Filled.Star,
-        "星轨" to Icons.Filled.Favorite,
-        "星友圈" to Icons.Filled.LocationOn,
+        "今天" to Icons.Filled.DateRange,
+        "连向我" to Icons.Filled.Email,
+        "星轨" to Icons.Filled.Star,
+        "星友圈" to Icons.Filled.ThumbUp,
         "我的" to Icons.Filled.Person,
     )
-    Surface(color = Color(0xFF0B0E16), tonalElevation = 0.dp) {
-        Box(Modifier.background(Brush.verticalGradient(listOf(Color(0x00FFFFFF), Color(0x14FFFFFF))))) {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .windowInsetsPadding(WindowInsets.navigationBars)
-                    .padding(vertical = 6.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                items.forEachIndexed { i, item ->
-                    val label = item.first
-                    val icon = item.second
-                    val on = i == current
-                    Column(
-                        Modifier
-                            .clip(RoundedCornerShape(14.dp))
-                            .clickable { onPick(i) }
-                            .background(if (on) Color(0x1F4DB4FF) else Color.Transparent)
-                            .padding(horizontal = 12.dp, vertical = 5.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Icon(
-                            icon,
-                            contentDescription = label,
-                            tint = if (on) MaterialTheme_color.accent else MaterialTheme_color.ink2,
-                            modifier = Modifier.size(21.dp),
-                        )
-                        Spacer(Modifier.height(3.dp))
-                        Text(
-                            label,
-                            fontSize = 10.sp,
-                            fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
-                            color = if (on) MaterialTheme_color.accent else MaterialTheme_color.ink2,
-                        )
-                    }
+    Column(Modifier.background(Color(0xFF070910))) {
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0x14FFFFFF)))
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .padding(vertical = 7.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            items.forEachIndexed { i, item ->
+                val label = item.first
+                val icon = item.second
+                val on = i == current
+                Column(
+                    Modifier
+                        .clip(RoundedCornerShape(16.dp))
+                        .clickable { onPick(i) }
+                        .background(if (on) Color(0x1F4DB4FF) else Color.Transparent)
+                        .padding(horizontal = 13.dp, vertical = 6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Icon(
+                        icon,
+                        contentDescription = label,
+                        tint = if (on) MaterialTheme_color.accent else MaterialTheme_color.ink3,
+                        modifier = Modifier.size(22.dp),
+                    )
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        label,
+                        fontSize = 10.5.sp,
+                        fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (on) MaterialTheme_color.accent else MaterialTheme_color.ink2,
+                    )
                 }
             }
         }
@@ -383,18 +387,34 @@ private fun TodayPage(vm: MainViewModel, s: UiState) {
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp),
     ) {
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(12.dp))
         ScreenTitle("今天", t?.day?.let { "$it · 这一轮路过的星" } ?: "这一轮路过的星")
         PageError(vm, s, "today")
         t?.round?.let { r ->
-            Text(
-                "已连 ${r.used ?: 0} / ${r.max ?: 0}",
-                fontSize = 12.sp,
-                color = MaterialTheme_color.ink2,
-                modifier = Modifier.padding(top = 4.dp, start = 4.dp),
-            )
+            Row(
+                Modifier.padding(top = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                val used = r.used ?: 0
+                val max = r.max ?: 0
+                Pill(
+                    "已连 $used / $max",
+                    Color(0x1F4DB4FF),
+                    MaterialTheme_color.accent,
+                    size = 11,
+                )
+                if (t.cards.isNotEmpty()) {
+                    Pill(
+                        "${t.cards.size} 张星卡",
+                        Color(0x14FFFFFF),
+                        MaterialTheme_color.ink2,
+                        size = 11,
+                    )
+                }
+            }
         }
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(14.dp))
         if (t == null || t.cards.isEmpty()) {
             Empty("这一轮还没有星路过。")
         } else {
@@ -464,7 +484,7 @@ private fun InboxPage(vm: MainViewModel, s: UiState) {
 
 @Composable
 fun StarCardItem(c: StarCard, onLink: (() -> Unit)? = null) {
-    BoxCard {
+    BoxCard(tint = Color(Groups.color(c.group))) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Avatar(c.name, c.group, 40.dp)
             Spacer(Modifier.width(10.dp))
@@ -543,28 +563,31 @@ fun StarCardItem(c: StarCard, onLink: (() -> Unit)? = null) {
 }
 
 @Composable
-fun BoxCard(content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
+fun BoxCard(tint: Color? = null, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
+    val top = (tint ?: Color(0xFF161A28)).copy(alpha = 0.15f)
     Box(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(22.dp))
             .background(
-                Brush.verticalGradient(
-                    listOf(Color(0xFF141826), Color(0xFF0C0F17)),
+                Brush.linearGradient(
+                    colors = listOf(top, Color(0xFF090A11)),
+                    start = androidx.compose.ui.geometry.Offset.Zero,
+                    end = androidx.compose.ui.geometry.Offset(900f, 1400f),
                 ),
             )
-            .border(1.dp, MaterialTheme_color.line, RoundedCornerShape(20.dp)),
+            .border(1.dp, Color(0x14FFFFFF), RoundedCornerShape(22.dp)),
     ) {
-        Column(Modifier.padding(15.dp), content = content)
+        Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 15.dp, bottom = 14.dp), content = content)
     }
 }
 
 @Composable
 fun ScreenTitle(title: String, sub: String? = null) {
-    Text(title, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = MaterialTheme_color.ink)
+    Text(title, fontSize = 28.sp, fontWeight = FontWeight.Bold, color = MaterialTheme_color.ink)
     if (sub != null) {
-        Spacer(Modifier.height(4.dp))
-        Text(sub, fontSize = 12.sp, color = MaterialTheme_color.ink2)
+        Spacer(Modifier.height(5.dp))
+        Text(sub, fontSize = 13.sp, color = MaterialTheme_color.ink2)
     }
 }
 
