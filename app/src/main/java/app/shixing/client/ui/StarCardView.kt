@@ -51,8 +51,8 @@ import coil.compose.AsyncImage
 fun StarCardFace(
     card: MyCard,
     photoUrl: String?,
-    faceLabel: String? = null,
     modifier: Modifier = Modifier,
+    faceLabel: String? = null,
 ) {
     val shape = RoundedCornerShape(26.dp)
     val group = card.group
@@ -367,7 +367,7 @@ fun MyCardScreen(
                         .clickable { flipped = !flipped },
                 ) {
                     if (rotation <= 90f) {
-                        StarCardFace(card, photoUrl, faceLabel, Modifier.fillMaxWidth())
+                        StarCardFace(card, photoUrl, Modifier.fillMaxWidth(), faceLabel)
                     } else {
                         Box(Modifier.graphicsLayer { rotationY = 180f }) {
                             StarCardBack(card, Modifier.fillMaxWidth())

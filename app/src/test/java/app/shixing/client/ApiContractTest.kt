@@ -1,4 +1,4 @@
-package app.shixing.client
+﻿package app.shixing.client
 
 import app.shixing.client.data.ApiException
 import app.shixing.client.data.VrccClient
@@ -44,7 +44,7 @@ class ApiContractTest {
         )
         val r = client().boards(3)
         val req = server.takeRequest()
-        assertEquals("dev-shixing-android", req.getHeader("X-Client"))
+        assertEquals(BuildConfig.CLIENT_ID, req.getHeader("X-Client"))
         assertEquals("/api/v1/boards/maps?limit=3", req.path)
         assertEquals(1, r.maps.size)
         assertEquals("wrld_1", r.maps[0].world)
