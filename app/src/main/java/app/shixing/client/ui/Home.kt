@@ -1,4 +1,4 @@
-package app.shixing.client.ui
+﻿package app.shixing.client.ui
 
 import android.content.Intent
 import androidx.compose.foundation.background
@@ -73,6 +73,11 @@ import app.shixing.client.data.Groups
 import app.shixing.client.data.Msg
 import app.shixing.client.data.StarCard
 import app.shixing.client.data.Thread
+import app.shixing.client.legacy.AccountScreen
+import app.shixing.client.legacy.BagScreen
+import app.shixing.client.legacy.LegacyLoginScreen
+import app.shixing.client.legacy.LegacyViewModel
+import app.shixing.client.legacy.RedeemScreen
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -89,6 +94,13 @@ fun Home(vm: MainViewModel) {
     var tab by rememberSaveable { mutableStateOf(0) }
     var boardOpen by rememberSaveable { mutableStateOf(false) }
     var chatOpen by rememberSaveable { mutableStateOf<Long?>(null) }
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val legacyVm: LegacyViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+        factory = LegacyViewModel.factory(context),
+    )
+    val legacyState by legacyVm.state.collectAsStateWithLifecycle()
+    var legacyRoute by rememberSaveable { mutableStateOf<String?>(null) }
 
     state.hint?.let { h ->
         LaunchedEffect(h) {
@@ -136,6 +148,13 @@ fun Home(vm: MainViewModel) {
 
             val chatPeer = chatOpen
             when {
+                legacyState.showLogin -> LegacyLoginScreen(
+                    onCaptured = { legacyVm.saveKey(it) },
+                    onClose = { legacyVm.closeLogin() },
+                )
+                legacyRoute == "redeem" -> RedeemScreen(legacyVm) { legacyRoute = null; legacyVm.dismissHint() }
+                legacyRoute == "bag" -> BagScreen(legacyVm) { legacyRoute = null }
+                legacyRoute == "account" -> AccountScreen(legacyVm) { legacyRoute = null }
                 !state.session -> ConnectPage(vm, state)
                 boardOpen -> BoardPage(
                     maps = state.boards,
@@ -148,7 +167,7 @@ fun Home(vm: MainViewModel) {
                 tab == 1 -> InboxPage(vm, state)
                 tab == 2 -> CrossingsPage(vm, state)
                 tab == 3 -> PostsPage(vm, state)
-                else -> MePage(vm, state, onOpenBoard = { boardOpen = true }, onOpenChat = { n -> chatOpen = n })
+                else -> MePage(vm, state, onOpenBoard = { boardOpen = true }, onOpenChat = { n -> chatOpen = n }, onOpenLegacy = { legacyRoute = it })
             }
         }
     }

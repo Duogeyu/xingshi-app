@@ -299,6 +299,7 @@ fun MePage(
     s: UiState,
     onOpenBoard: () -> Unit,
     onOpenChat: (Long) -> Unit,
+    onOpenLegacy: (String) -> Unit = {},
 ) {
     Column(
         Modifier
@@ -373,7 +374,25 @@ fun MePage(
             }
         }
 
-        // 私聊
+                Spacer(Modifier.height(12.dp))
+        BoxCard {
+            Text(
+                "网页功能",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme_color.ink,
+            )
+            Text(
+                "仓库、装扮、兑换码、设备管理这些官方接口还没开放，走的是网页自己的接口。",
+                fontSize = 11.sp,
+                color = MaterialTheme_color.ink3,
+                modifier = Modifier.padding(top = 4.dp, bottom = 10.dp),
+            )
+            LegacyRow("我的仓库", "贴纸包、卡面、星尘") { onOpenLegacy("bag") }
+            LegacyRow("兑换码", "兑换贴纸包和装扮") { onOpenLegacy("redeem") }
+            LegacyRow("账号与设备", "看登录的设备、踢掉别人") { onOpenLegacy("account") }
+        }
+// 私聊
         Spacer(Modifier.height(14.dp))
         BoxCard {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -896,5 +915,23 @@ private fun WritePostCard(vm: MainViewModel) {
                 ) { Text(if (busy) "发送中…" else "发出去", fontSize = 13.sp) }
             }
         }
+    }
+}
+
+@Composable
+private fun LegacyRow(title: String, sub: String, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, fontSize = 14.sp, color = MaterialTheme_color.ink)
+            Text(sub, fontSize = 11.sp, color = MaterialTheme_color.ink3, modifier = Modifier.padding(top = 2.dp))
+        }
+        Text("›", fontSize = 18.sp, color = MaterialTheme_color.ink3)
     }
 }
