@@ -3,13 +3,22 @@ package app.shixing.client.ui
 import app.shixing.client.data.ApiException
 import app.shixing.client.data.BoardMap
 import app.shixing.client.data.CrossStar
+import app.shixing.client.data.DeviceCode
+import app.shixing.client.data.InboxResp
+import app.shixing.client.data.MyCard
+import app.shixing.client.data.MyRating
 import app.shixing.client.data.MutualStar
 import app.shixing.client.data.NotificationItem
+import app.shixing.client.data.Post
 import app.shixing.client.data.Repository
+import app.shixing.client.data.Thread
+import app.shixing.client.data.TodayResp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,7 +40,21 @@ data class UiState(
     val crossingsWhy: String? = null,
     val mutuals: List<MutualStar> = emptyList(),
     val dailyUsed: Int = 0,
+    /** 正在等玩家在网页上同意时，这张卡片显示 user_code。 */
+    val device: DeviceCode? = null,
+    /** 设备码还剩下的秒数（用于「还剩 8:32」）。 */
+    val deviceLeft: Int = 0,
+    // ---- 新接口 ----
+    val today: TodayResp? = null,
+    val inbox: InboxResp? = null,
+    val posts: List<Post> = emptyList(),
+    val card: MyCard? = null,
+    val myMaps: List<MyRating> = emptyList(),
+    val threads: List<Thread> = emptyList(),
+    /** 每个页面各自的问题（今天/连向我/星友圈/我的），不互相顶掉。 */
+    val pageErrors: Map<String, String> = emptyMap(),
 )
+
 
 class MainViewModel(private val repo: Repository) : ViewModel() {
 
@@ -60,25 +83,110 @@ class MainViewModel(private val repo: Repository) : ViewModel() {
 
     fun refreshAll() = viewModelScope.launch {
         _state.update { it.copy(loading = true, error = null) }
-        var firstError: String? = null
+
+        // 每一页单独记错误，一个权限没申请到不影响其它页。
+        val errs = mutableMapOf<String, String>()
+
+        runCatching { repo.today() }.onSuccess { t ->
+            _state.update { it.copy(today = t) }
+        }.onFailure { errs["today"] = describe(it) }
+
+        runCatching { repo.inbox() }.onSuccess { i ->
+            _state.update { it.copy(inbox = i) }
+        }.onFailure { errs["inbox"] = describe(it) }
+
+        runCatching { repo.posts() }.onSuccess { p ->
+            _state.update { it.copy(posts = p.posts) }
+        }.onFailure { errs["posts"] = describe(it) }
+
+        runCatching { repo.card() }.onSuccess { c ->
+            _state.update { it.copy(card = c) }
+        }.onFailure { errs["card"] = describe(it) }
+
+        runCatching { repo.myMaps() }.onSuccess { m ->
+            _state.update { it.copy(myMaps = m.maps) }
+        }.onFailure { errs["mymaps"] = describe(it) }
+
+        runCatching { repo.chats() }.onSuccess { c ->
+            _state.update { it.copy(threads = c.threads) }
+        }.onFailure { errs["chats"] = describe(it) }
+
         runCatching { repo.recent() }.onSuccess { r ->
             _state.update { it.copy(recent = r.items, readId = r.read) }
-        }.onFailure { if (firstError == null) firstError = describe(it) }
+        }.onFailure { errs["recent"] = describe(it) }
 
         runCatching { repo.crossings() }.onSuccess { c ->
             _state.update { it.copy(crossings = c.stars, crossingsWhy = c.why, dot = c.n ?: 0) }
-        }.onFailure { if (firstError == null) firstError = describe(it) }
+        }.onFailure { errs["crossings"] = describe(it) }
 
         runCatching { repo.mutuals() }.onSuccess { m ->
             _state.update { it.copy(mutuals = m.stars) }
-        }.onFailure { if (firstError == null) firstError = describe(it) }
+        }.onFailure { errs["mutuals"] = describe(it) }
 
         runCatching { repo.boards() }.onSuccess { b ->
             _state.update { it.copy(boards = b.maps) }
-        }.onFailure { if (firstError == null) firstError = describe(it) }
+        }.onFailure { if (errs.isEmpty()) errs["boards"] = describe(it) }
 
-        _state.update { it.copy(loading = false, error = firstError, dailyUsed = repo.dailyUsed()) }
+        _state.update {
+            it.copy(
+                loading = false,
+                error = null,
+                pageErrors = errs,
+                dailyUsed = repo.dailyUsed(),
+            )
+        }
     }
+
+    /** 只刷「今天」这一页（网页上「换一轮」）。 */
+    fun refreshToday() = viewModelScope.launch {
+        runCatching { repo.today() }
+            .onSuccess { t -> _state.update { it.copy(today = t, pageErrors = it.pageErrors - "today") } }
+            .onFailure { e -> _state.update { it.copy(pageErrors = it.pageErrors + ("today" to describe(e))) } }
+    }
+
+    fun refreshInbox() = viewModelScope.launch {
+        runCatching { repo.inbox(mark = true) }
+            .onSuccess { i -> _state.update { it.copy(inbox = i, pageErrors = it.pageErrors - "inbox") } }
+            .onFailure { e -> _state.update { it.copy(pageErrors = it.pageErrors + ("inbox" to describe(e))) } }
+    }
+
+    fun refreshPosts(filter: String = "all") = viewModelScope.launch {
+        runCatching { repo.posts(filter) }
+            .onSuccess { p -> _state.update { it.copy(posts = p.posts, pageErrors = it.pageErrors - "posts") } }
+            .onFailure { e -> _state.update { it.copy(pageErrors = it.pageErrors + ("posts" to describe(e))) } }
+    }
+
+    fun refreshChats() = viewModelScope.launch {
+        runCatching { repo.chats() }
+            .onSuccess { c -> _state.update { it.copy(threads = c.threads, pageErrors = it.pageErrors - "chats") } }
+            .onFailure { e -> _state.update { it.copy(pageErrors = it.pageErrors + ("chats" to describe(e))) } }
+    }
+
+    /** 玩家点了某颗星的「连上」。只能连网页允许的星。 */
+    fun link(to: Long, via: String? = null, post: Long? = null, onDone: (String) -> Unit) =
+        viewModelScope.launch {
+            runCatching { repo.link(to, via, post) }
+                .onSuccess { r ->
+                    onDone(if (r.mutual) "你们互相连上了" else "已连向 ${r.card?.name ?: "这颗星"}")
+                    refreshInbox()
+                    refreshToday()
+                }
+                .onFailure { e -> onDone(describe(e)) }
+        }
+
+    /** 打开一段私聊；返回 null 表示失败了（错误已经进 pageErrors）。 */
+    suspend fun openChat(n: Long, before: Long? = null): app.shixing.client.data.ChatResp? =
+        runCatching { repo.chat(n, before) }.getOrNull()
+
+    /** 只在玩家点「发送」时调用。 */
+    fun send(n: Long, text: String, onDone: (String) -> Unit) = viewModelScope.launch {
+        val t = text.trim()
+        if (t.isEmpty()) return@launch
+        runCatching { repo.sendChat(n, t) }
+            .onSuccess { onDone("") }
+            .onFailure { e -> onDone(describe(e)) }
+    }
+
 
     fun connect(code: String) = viewModelScope.launch {
         _state.update { it.copy(loading = true, error = null, hint = null) }
@@ -104,6 +212,67 @@ class MainViewModel(private val repo: Repository) : ViewModel() {
         _state.update {
             UiState(session = false, boards = it.boards, hint = "已断开，令牌已从本机删除")
         }
+    }
+
+    // ---- 设备授权 ----
+
+    private var pollJob: Job? = null
+
+    /** 申请设备码，然后把 user_code 显示出来等玩家在网页上同意。 */
+    fun startDevice() {
+        pollJob?.cancel()
+        pollJob = viewModelScope.launch {
+            _state.update { it.copy(loading = true, error = null, hint = null) }
+            val dc = runCatching { repo.startDeviceFlow() }
+                .onFailure { e -> _state.update { it.copy(loading = false, error = describe(e)) } }
+                .getOrNull() ?: return@launch
+            _state.update { it.copy(loading = false, device = dc, deviceLeft = dc.expiresIn) }
+            val startedAt = System.currentTimeMillis()
+            while (true) {
+                delay(dc.interval.coerceAtLeast(3) * 1000L)
+                val left = dc.expiresIn - ((System.currentTimeMillis() - startedAt) / 1000).toInt()
+                if (left <= 0) {
+                    _state.update { it.copy(device = null, deviceLeft = 0, error = "连接码过期了，重新获取一枚") }
+                    return@launch
+                }
+                _state.update { it.copy(deviceLeft = left) }
+                try {
+                    val r = repo.pollDeviceToken(dc.deviceCode)
+                    _state.update {
+                        it.copy(
+                            session = true,
+                            star = r.me?.star,
+                            vrc = r.me?.vrc,
+                            device = null,
+                            deviceLeft = 0,
+                            hint = "已连接",
+                        )
+                    }
+                    refreshAll()
+                    return@launch
+                } catch (e: ApiException) {
+                    when (e.error) {
+                        "authorization_pending" -> Unit // 继续等
+                        "access_denied" -> {
+                            _state.update { it.copy(device = null, error = "你在网页上点了取消") }
+                            return@launch
+                        }
+                        else -> {
+                            _state.update { it.copy(device = null, error = describe(e)) }
+                            return@launch
+                        }
+                    }
+                } catch (e: Exception) {
+                    _state.update { it.copy(device = null, error = describe(e)) }
+                    return@launch
+                }
+            }
+        }
+    }
+
+    fun cancelDevice() {
+        pollJob?.cancel()
+        _state.update { it.copy(device = null, deviceLeft = 0) }
     }
 
     fun markCrossingsRead() = viewModelScope.launch {
@@ -145,6 +314,8 @@ class MainViewModel(private val repo: Repository) : ViewModel() {
 
     fun clearHint() = _state.update { it.copy(hint = null) }
 
+    fun showHint(text: String) = _state.update { it.copy(hint = text) }
+
     companion object {
         fun factory(repo: Repository) = viewModelFactory {
             initializer { MainViewModel(repo) }
@@ -163,6 +334,13 @@ fun describe(e: Throwable): String {
             "local_quota" -> "本地日配额已用满（每天 300 次），明天再来"
             "code" -> "连接码不对、已过期或已经用过"
             "token_missing", "gone" -> "连接已失效，请重新连接"
+            "authorization_pending" -> "还在等你同意"
+            "access_denied" -> "你在网页上点了取消"
+            "expired_token" -> "连接码过期了，重新获取一枚"
+            "invalid_scope" -> "申请了不认识的权限"
+            "client_missing", "client_unknown", "client_off" -> "这个接口要等应用审核通过（网页「我的资料 → 第三方客户端 → 申请审核」）"
+            "client_mismatch" -> "客户端标识和取码时不一致"
+            "scope_unreviewed" -> "敏感权限还没通过审核，这个账号暂时不能同意"
             "map_not_went" -> when (api.need) {
                 "verify" -> "先验证 VRChat 账号才能打分"
                 "friend" -> "先同意机器人的好友请求"
@@ -173,6 +351,15 @@ fun describe(e: Throwable): String {
             "map_off", "xd_world_no" -> "这张地图不给打分"
             "yq_words" -> "短评没通过检查" + (api.why?.let { "：$it" } ?: "")
             "yq_empty" -> "短评不能只有标点或空白"
+            "scope" -> "这个页面要的权限还没有：${api.need ?: "未知"}（重新连接时把权限都同意上）"
+            "not_offered" -> "网页现在不允许连这颗星"
+            "quota" -> "这一轮已经连满了，等下一轮"
+            "fof_day", "yq_link_day", "cross_link_day" -> "今天这一类连线的次数用完了"
+            "star_gone" -> "这颗星已经不在了"
+            "msg_not_mutual" -> "只有互相连上的人才能私聊"
+            "msg_words" -> "消息没通过检查" + (api.why?.let { "：$it" } ?: "")
+            "msg_empty" -> "消息不能是空的"
+            "bad_target" -> "连不到这颗星"
             else -> "请求失败（${api.status} ${api.error}）"
         }
     }

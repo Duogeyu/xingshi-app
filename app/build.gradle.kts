@@ -14,10 +14,10 @@ android {
         applicationId = "app.shixing.client"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
         resourceConfigurations += listOf("zh", "zh-rCN")
-        buildConfigField("String", "CLIENT_ID", "\"dev-shixing-android\"")
+        buildConfigField("String", "CLIENT_ID", "\"app_f91c740693315463\"")
         buildConfigField("String", "API_BASE", "\"https://vrcc.cc/api/v1/\"")
         buildConfigField("String", "SOURCE_URL", "\"https://github.com/daa0v0/xingshi-app\"")
     }

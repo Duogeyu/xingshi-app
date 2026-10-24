@@ -1,6 +1,8 @@
 package app.shixing.client.data
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 
 /** `connect` 与星轨等接口里通用的「我」：点亮编号 + VRChat 名字。 */
 @Serializable
@@ -36,6 +38,28 @@ data class ConnectResult(
     val token: String,
     val me: Me? = null,
 )
+
+/** POST /device/code 的返回：给玩家看的 user_code + 同意链接。 */
+@Serializable
+data class DeviceCode(
+    @SerialName("device_code") val deviceCode: String,
+    @SerialName("user_code") val userCode: String,
+    @SerialName("verification_uri") val verificationUri: String? = null,
+    @SerialName("verification_uri_complete") val verificationUriComplete: String? = null,
+    @SerialName("expires_in") val expiresIn: Int = 600,
+    val interval: Int = 5,
+    val scope: String? = null,
+)
+
+/** POST /device/token 成功后返回的令牌（只返回一次）。 */
+@Serializable
+data class TokenResponse(
+    @SerialName("access_token") val accessToken: String,
+    @SerialName("token_type") val tokenType: String? = null,
+    val scope: String? = null,
+    val me: Me? = null,
+)
+
 
 @Serializable
 data class NotificationItem(
@@ -121,6 +145,177 @@ data class MyMap(
     /** 官方要求：`off` 为真时这块不给这位玩家看。 */
     val visible: Boolean get() = !off
 }
+
+// ---- 我的星卡（GET /me/card）----
+
+@Serializable
+data class CardScores(
+    @SerialName("G") val g: Int = 0,
+    @SerialName("W") val w: Int = 0,
+    @SerialName("Z") val z: Int = 0,
+    @SerialName("L") val l: Int = 0,
+) {
+    fun pairs(): List<Pair<String, Int>> = listOf("G" to g, "W" to w, "Z" to z, "L" to l)
+}
+
+@Serializable
+data class MyCard(
+    val star: Int? = null,
+    val name: String = "",
+    val line: String = "",
+    val group: String? = null,
+    val groupName: String? = null,
+    val vibe: String? = null,
+    val scores: CardScores? = null,
+    val intro: String? = null,
+)
+
+// ---- 今天 / 连向我 里的星卡 ----
+
+@Serializable
+data class Qa(val q: String? = null, val a: String? = null)
+
+@Serializable
+data class StarCard(
+    val n: Long,
+    val name: String? = null,
+    val line: String? = null,
+    val group: String? = null,
+    val groupName: String? = null,
+    val vibe: String? = null,
+    val intro: String? = null,
+    val about: List<Qa> = emptyList(),
+    val star: Int? = null,
+    val verified: Boolean = false,
+    val linked: Boolean = false,
+    val mutual: Boolean = false,
+    val vrc: String? = null,
+    val vrcUser: String? = null,
+    val friends: Int? = null,
+    val at: Long? = null,
+    /** 网页给这两页塞的额外字段（比如「新」标记），这里不解析。 */
+    val fresh: Boolean = false,
+)
+
+@Serializable
+data class TodayRound(
+    val at: Long? = null,
+    val next: Long? = null,
+    val used: Int? = null,
+    val max: Int? = null,
+    val remind: Boolean = false,
+)
+
+@Serializable
+data class TodayResp(
+    val day: String? = null,
+    val cards: List<StarCard> = emptyList(),
+    val round: TodayRound? = null,
+)
+
+@Serializable
+data class CrossCount(
+    val n: Int = 0,
+    val fresh: Int = 0,
+)
+
+@Serializable
+data class InboxResp(
+    val cards: List<StarCard> = emptyList(),
+    val counts: Map<String, JsonElement> = emptyMap(),
+    val seen: Long? = null,
+    val cross: CrossCount? = null,
+)
+
+@Serializable
+data class LinkResp(
+    val mutual: Boolean = false,
+    val card: StarCard? = null,
+)
+
+// ---- 私聊 ----
+
+@Serializable
+data class Peer(
+    val n: Long,
+    val name: String? = null,
+    val group: String? = null,
+    val photo: Boolean = false,
+    val mutual: Boolean = false,
+    val vrc: String? = null,
+)
+
+@Serializable
+data class Msg(
+    val id: Long,
+    val text: String? = null,
+    val at: Long? = null,
+    val kind: String? = null,
+    val mine: Boolean = false,
+    val check: String? = null,
+    val sticker: String? = null,
+)
+
+@Serializable
+data class Thread(
+    val peer: Peer? = null,
+    val last: Msg? = null,
+    val unread: Int = 0,
+)
+
+@Serializable
+data class ChatsResp(val threads: List<Thread> = emptyList())
+
+@Serializable
+data class ChatResp(
+    val msgs: List<Msg> = emptyList(),
+    val more: Boolean = false,
+    val peer: Peer? = null,
+    val max: Int? = null,
+)
+
+// ---- 星友圈 ----
+
+@Serializable
+data class Post(
+    val id: Long,
+    val kind: String? = null,
+    val text: String? = null,
+    val vis: String? = null,
+    val at: Long? = null,
+    val mine: Boolean = false,
+    val check: String? = null,
+    val lit: Int = 0,
+    val cmts: Int = 0,
+    /** 作者：网页里可能叫 who 或 peer，星卡是 card，三种都收。 */
+    val who: Peer? = null,
+    val peer: Peer? = null,
+    val card: Peer? = null,
+) {
+    val author: Peer? get() = who ?: peer ?: card
+}
+
+@Serializable
+data class PostsResp(
+    val posts: List<Post> = emptyList(),
+    val page: Int? = null,
+)
+
+// ---- 我打过分的地图 ----
+
+@Serializable
+data class MyRating(
+    val world: String,
+    val name: String? = null,
+    val score: Int = 0,
+    val words: String? = null,
+    val wordsOk: String? = null,
+    val at: Long? = null,
+    val page: String? = null,
+)
+
+@Serializable
+data class MyMapsResp(val maps: List<MyRating> = emptyList())
 
 /** 星群的配色，与网页 `{G,W,Z,L,A}` 对齐。 */
 object Groups {

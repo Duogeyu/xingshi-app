@@ -23,15 +23,24 @@
 | 地图评分 | `GET /me/maps/{world}`、`POST /me/maps/{world}/rating` | 1–10 星 + 30 字短评，**只在玩家点提交时写** |
 | 我的 | — | 星号、本地日配额用量、断开连接（从本机删除令牌） |
 
-连接方式：在网页端「我的星」里生成 8 位连接码，填进 App；令牌只存在这台设备上，只发往 `vrcc.cc`。
+连接方式（两条都走官方接口）：
+
+1. **设备授权（推荐，RFC 8628）**：App 里点「生成连接码」，拿到 `ABCD-2345` 这样的码；在网页「我的资料 → 第三方客户端 → 连接新客户端」填进去点「同意」，App 每 5 秒问一次，同意后自动进入。
+2. **8 位连接码**：网页「我的资料 → 在 VRCX 里提醒」生成的一次性码，直接填进 App 的第二个输入框。
+
+每个客户端有**自己的授权**，不会顶掉 VRCX 脚本或其他客户端；玩家可以在「我的资料 → 第三方客户端」里单独断开。令牌只存在这台设备上，只发往 `vrcc.cc`。
 
 ## 不能做什么（官方接口没开）
 
-测星问卷、每日推荐、星友圈动态、私聊、连线留言、地图榜之外的礼物/装扮/背包、星搭——这些都在未公开的 `/api/match` 上，官方《使用要求》写的是「新的客户端请一律使用 `/api/v1/`」，所以这里不做。改资料、注销账号也不在接口范围里，请回网页端。
+测星问卷、每日推荐、星友圈动态、私聊、连线留言、地图榜之外的礼物/装扮/背包、星搭——这些在未公开的 `/api/match` 上，官方《使用要求》写的是「新的客户端请一律使用 `/api/v1/`」，所以这里不做。改资料、注销账号也不在接口范围里，请回网页端。
+
+> 2026-10-24 实测（重要）：自助登记但**未审核**的应用（`X-Client: app_…`）连上后，老的四个接口 `me/notifications`、`me/notifications/recent`、`me/crossings`、`me/mutuals`（以及 `me/maps/{world}`、打分）会返回 `403 {"error":"client_unknown"}`；同一枚令牌打 `me/card`、`me/today`、`me/inbox`、`me/links`、`me/posts`、`me/chats` 则正常走到 scope 检查（`403 {"error":"scope","need":"…"}`）。结论：老接口按「客户端白名单」校验（`dev-` 或审核通过的应用），新接口按 scope 校验。要跑老接口就去点「申请审核」。`dev-` 标识能跑老接口，但 `POST /device/code` 只能要普通权限（`profile notifications maps`），敏感权限会 `403 scope_unreviewed`。
+
+> 2026-10-24 更新：官方接口已扩展到 24 条路径，新增 `GET /me/card`、`/me/today`、`/me/inbox`、`/me/links`、`/me/chats`、`/me/chats/{n}`、`/me/posts`、`/me/maps`，以及 `POST /device/code`、`/device/token`、`/oauth/token`、`/oauth/userinfo`。也就是说「今天」「连向我」「私聊」「星友圈」「我的星卡」现在都在合规范围内，见路线图下一个阶段。
 
 ## 合规清单（对着官方要求逐条落）
 
-- **登记**：客户端标识 `dev-shixing-android`（`BuildConfig.CLIENT_ID`），每请求都带 `X-Client`。
+- **登记**：已在「我的资料 → 第三方客户端 → 我登记的应用」登记，`client_id = app_f91c740693315463`（`BuildConfig.CLIENT_ID`，每个请求都带 `X-Client`）。登记时拿到的密钥 `sec_…` 属于网站/OAuth 流程，**不在 App 里、不进仓库**。
 - **只走官方接口**：`VrccClient` 里 `require(!path.startsWith("http"))` 硬拦绝对地址，基址写死 `https://vrcc.cc/api/v1/`。
 - **限流**：`Throttle` 每分钟 120 次上限 + 每个接口的最小间隔；四个个人接口合计每天 300 次，在 `TokenStore.takeDailyQuota()` 里本地先扣，宁可少问。
 - **写操作只在点击时**：打分只能从评分弹窗的「提交」按钮发出，不做后台批量。

@@ -119,6 +119,23 @@ class VrccClient(
     suspend fun disconnect(): JsonObject =
         call("POST", "disconnect", null, true, JsonObject.serializer())
 
+    // ---- 设备授权（RFC 8628，推荐）----
+
+    suspend fun deviceCode(scope: String): DeviceCode {
+        val body = buildJsonObject { put("scope", JsonPrimitive(scope)) }.toString()
+        return call("POST", "device/code", body, false, DeviceCode.serializer())
+    }
+
+    /**
+     * 用连接码换令牌。玩家还没点同意时抛 `ApiException(400, "authorization_pending")`，
+     * 调用方按 `interval` 秒再来问；`access_denied` / `expired_token` 要停下。
+     */
+    suspend fun deviceToken(deviceCode: String): TokenResponse {
+        val body = buildJsonObject { put("device_code", JsonPrimitive(deviceCode)) }.toString()
+        return call("POST", "device/token", body, false, TokenResponse.serializer())
+    }
+
+
     // ---- 玩家自己的接口 ----
 
     suspend fun notifications(since: Long?): Notifications =
@@ -161,6 +178,68 @@ class VrccClient(
             if (text != null) put("text", JsonPrimitive(text.take(30)))
         }.toString()
         return call("POST", "me/maps/$world/rating", body, true, MyMap.serializer())
+    }
+
+    // ---- 星卡 / 今天 / 连向我 / 星友圈 / 私聊（scope: card today inbox posts chat）----
+
+    suspend fun card(): MyCard =
+        call("GET", "me/card", null, true, MyCard.serializer())
+
+    suspend fun myMaps(): MyMapsResp =
+        call("GET", "me/maps", null, true, MyMapsResp.serializer())
+
+    suspend fun today(): TodayResp =
+        call("GET", "me/today", null, true, TodayResp.serializer())
+
+    suspend fun inbox(mark: Boolean = false): InboxResp =
+        call(
+            "GET",
+            if (mark) "me/inbox?mark=1" else "me/inbox",
+            null,
+            true,
+            InboxResp.serializer(),
+        )
+
+    /** 只在玩家主动点「连上」时调用。`via` 只能是 cross（星轨）或 yq（星友圈，要带 post）。 */
+    suspend fun link(to: Long, via: String? = null, post: Long? = null): LinkResp {
+        val body = buildJsonObject {
+            put("to", JsonPrimitive(to))
+            if (via != null) put("via", JsonPrimitive(via))
+            if (post != null) put("post", JsonPrimitive(post))
+        }.toString()
+        return call("POST", "me/links", body, true, LinkResp.serializer())
+    }
+
+    suspend fun chats(): ChatsResp =
+        call("GET", "me/chats", null, true, ChatsResp.serializer())
+
+    suspend fun chat(n: Long, before: Long? = null): ChatResp =
+        call(
+            "GET",
+            if (before == null) "me/chats/$n" else "me/chats/$n?before=$before",
+            null,
+            true,
+            ChatResp.serializer(),
+        )
+
+    /** 只在玩家点「发送」时调用，且只能发给互相连上的人。 */
+    suspend fun sendChat(n: Long, text: String): ChatResp {
+        val body = buildJsonObject { put("text", JsonPrimitive(text)) }.toString()
+        return call("POST", "me/chats/$n", body, true, ChatResp.serializer())
+    }
+
+    suspend fun posts(f: String = "all", before: Long? = null): PostsResp {
+        val q = buildList {
+            if (f != "all") add("f=$f")
+            if (before != null) add("before=$before")
+        }.joinToString("&")
+        return call(
+            "GET",
+            if (q.isEmpty()) "me/posts" else "me/posts?$q",
+            null,
+            true,
+            PostsResp.serializer(),
+        )
     }
 
     private companion object {

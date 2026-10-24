@@ -12,8 +12,8 @@ import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import app.shixing.client.notify.ReminderNotifier
+import app.shixing.client.ui.Home
 import app.shixing.client.ui.MainViewModel
-import app.shixing.client.ui.ShixingApp
 import app.shixing.client.ui.theme.ShixingTheme
 import app.shixing.client.work.ReminderScheduler
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -27,7 +27,7 @@ class MainActivity : ComponentActivity() {
     private val vm: MainViewModel by viewModels { MainViewModel.factory(repo) }
 
     private val notificationPermission =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* 拒绝也照常运行 */ }
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* denied is fine */ }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,7 +56,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             ShixingTheme {
-                ShixingApp(vm)
+                Home(vm)
             }
         }
     }
