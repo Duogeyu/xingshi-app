@@ -1,9 +1,10 @@
-package app.shixing.client.legacy
+﻿package app.shixing.client.legacy
 
 import android.content.Context
 import android.util.Log
 import app.shixing.client.BuildConfig
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -44,6 +45,7 @@ class LegacyClient(
                     is Number -> put(name, JsonPrimitive(value))
                     is String -> put(name, JsonPrimitive(value))
                     is JsonObject -> put(name, value)
+                    is JsonArray -> put(name, value)
                     else -> put(name, JsonPrimitive(value.toString()))
                 }
             }
@@ -91,6 +93,19 @@ class LegacyClient(
     fun dropKey(id: String): JsonObject = call("key-drop", mapOf("id" to id))
 
     fun me(): JsonObject = call("me")
+
+    /** 批量取星的照片；返回 {photos:[{status,img,level}]}。 */
+    fun photos(items: List<Pair<Long, Int>>): JsonArray {
+        val list = JsonArray(
+            items.map { (to, want) ->
+                buildJsonObject {
+                    put("to", JsonPrimitive(to))
+                    put("want", JsonPrimitive(want))
+                }
+            },
+        )
+        return (call("photos", mapOf("list" to list))["photos"] as? JsonArray) ?: JsonArray(emptyList())
+    }
 
     fun leave(): JsonObject = call("leave")
 

@@ -1,4 +1,4 @@
-﻿package app.shixing.client.ui
+package app.shixing.client.ui
 
 import android.content.Intent
 import androidx.compose.foundation.background
@@ -146,6 +146,10 @@ fun Home(vm: MainViewModel) {
                 Spacer(Modifier.height(2.dp))
             }
 
+            LaunchedEffect(legacyRoute, state.star) {
+                if (legacyRoute == "starcard") state.star?.let { legacyVm.loadPhoto(it.toLong()) }
+            }
+
             val chatPeer = chatOpen
             when {
                 legacyState.showLogin -> LegacyLoginScreen(
@@ -155,6 +159,12 @@ fun Home(vm: MainViewModel) {
                 legacyRoute == "redeem" -> RedeemScreen(legacyVm) { legacyRoute = null; legacyVm.dismissHint() }
                 legacyRoute == "bag" -> BagScreen(legacyVm) { legacyRoute = null }
                 legacyRoute == "account" -> AccountScreen(legacyVm) { legacyRoute = null }
+                legacyRoute == "starcard" -> MyCardScreen(
+                    card = state.card,
+                    photoUrl = legacyState.photoUrl,
+                    faceLabel = null,
+                    onBack = { legacyRoute = null },
+                )
                 !state.session -> ConnectPage(vm, state)
                 boardOpen -> BoardPage(
                     maps = state.boards,
@@ -167,7 +177,7 @@ fun Home(vm: MainViewModel) {
                 tab == 1 -> InboxPage(vm, state)
                 tab == 2 -> CrossingsPage(vm, state)
                 tab == 3 -> PostsPage(vm, state)
-                else -> MePage(vm, state, onOpenBoard = { boardOpen = true }, onOpenChat = { n -> chatOpen = n }, onOpenLegacy = { legacyRoute = it })
+                else -> MePage(vm, state, onOpenBoard = { boardOpen = true }, onOpenChat = { n -> chatOpen = n }, onOpenLegacy = { legacyRoute = it }, onOpenCard = { legacyRoute = "starcard" })
             }
         }
     }
@@ -586,7 +596,7 @@ fun StarCardItem(c: StarCard, onLink: (() -> Unit)? = null) {
 }
 
 @Composable
-fun BoxCard(tint: Color? = null, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
+fun BoxCard(modifier: Modifier = Modifier, tint: Color? = null, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
     val top = (tint ?: Color(0xFF161A28)).copy(alpha = 0.15f)
     Box(
         Modifier
@@ -599,7 +609,8 @@ fun BoxCard(tint: Color? = null, content: @Composable androidx.compose.foundatio
                     end = androidx.compose.ui.geometry.Offset(900f, 1400f),
                 ),
             )
-            .border(1.dp, Color(0x14FFFFFF), RoundedCornerShape(22.dp)),
+            .border(1.dp, Color(0x14FFFFFF), RoundedCornerShape(22.dp))
+            .then(modifier),
     ) {
         Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 15.dp, bottom = 14.dp), content = content)
     }

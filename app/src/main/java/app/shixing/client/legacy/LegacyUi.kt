@@ -1,4 +1,4 @@
-﻿package app.shixing.client.legacy
+package app.shixing.client.legacy
 
 import android.annotation.SuppressLint
 import android.os.Handler
@@ -80,6 +80,8 @@ class LegacyViewModel(private val appContext: android.content.Context) : ViewMod
         val keys: JsonObject? = null,
         val redeems: List<String> = emptyList(),
         val showLogin: Boolean = false,
+        val photoUrl: String? = null,
+        val photoFor: Long? = null,
     )
 
     private val client = LegacyClient(keyProvider = { LegacyKey.get(appContext) })
@@ -92,6 +94,19 @@ class LegacyViewModel(private val appContext: android.content.Context) : ViewMod
     }
 
     fun openLogin() = _state.update { it.copy(showLogin = true) }
+    /** 取一张星卡照片（网页同款动作，需要本机有网页设备密钥）。 */
+    fun loadPhoto(star: Long) {
+        if (_state.value.photoFor == star && _state.value.photoUrl != null) return
+        if (LegacyKey.get(appContext) == null) return
+        viewModelScope.launch {
+            runCatching { client.photos(listOf(star to 2)) }.onSuccess { array ->
+                val img = (array.firstOrNull() as? JsonObject)?.str("img")
+                if (!img.isNullOrBlank()) {
+                    _state.update { it.copy(photoUrl = img, photoFor = star) }
+                }
+            }
+        }
+    }
 
     fun closeLogin() = _state.update { it.copy(showLogin = false) }
 

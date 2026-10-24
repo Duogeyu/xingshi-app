@@ -1,4 +1,4 @@
-﻿package app.shixing.client.ui
+package app.shixing.client.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -300,6 +300,7 @@ fun MePage(
     onOpenBoard: () -> Unit,
     onOpenChat: (Long) -> Unit,
     onOpenLegacy: (String) -> Unit = {},
+    onOpenCard: () -> Unit = {},
 ) {
     Column(
         Modifier
@@ -314,7 +315,7 @@ fun MePage(
         PageError(vm, s, "card")
         s.card?.let { c ->
             Spacer(Modifier.height(10.dp))
-            BoxCard {
+            BoxCard(Modifier.clickable(onClick = onOpenCard)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Avatar(c.name, c.group, 52.dp)
                     Spacer(Modifier.width(12.dp))
