@@ -123,7 +123,17 @@ class VrccClient(
 
     suspend fun deviceCode(scope: String): DeviceCode {
         val body = buildJsonObject { put("scope", JsonPrimitive(scope)) }.toString()
-        return call("POST", "device/code", body, false, DeviceCode.serializer())
+        return try {
+            call("POST", "device/code", body, false, DeviceCode.serializer())
+        } catch (e: ApiException) {
+            // 现网有的版本不认 JSON 体里的 scope（回 400 bad_request），退一步改成查询串。
+            if (e.status == 400) {
+                val q = java.net.URLEncoder.encode(scope, "UTF-8")
+                call("POST", "device/code?scope=$q", null, false, DeviceCode.serializer())
+            } else {
+                throw e
+            }
+        }
     }
 
     /**

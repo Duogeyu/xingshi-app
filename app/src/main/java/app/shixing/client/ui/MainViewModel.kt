@@ -137,7 +137,20 @@ class MainViewModel(private val repo: Repository) : ViewModel() {
         }
     }
 
-    /** 只刷「今天」这一页（网页上「换一轮」）。 */
+    /** 切到哪个页签就刷哪个，顺手把这一页的旧报错清掉。 */
+    fun refreshTab(index: Int) {
+        when (index) {
+            0 -> refreshToday()
+            1 -> refreshInbox()
+            2 -> refreshCrossings()
+            3 -> refreshPosts()
+            else -> {
+                refreshChats()
+                refreshCard()
+            }
+        }
+    }
+
     fun refreshToday() = viewModelScope.launch {
         runCatching { repo.today() }
             .onSuccess { t -> _state.update { it.copy(today = t, pageErrors = it.pageErrors - "today") } }
@@ -160,6 +173,29 @@ class MainViewModel(private val repo: Repository) : ViewModel() {
         runCatching { repo.chats() }
             .onSuccess { c -> _state.update { it.copy(threads = c.threads, pageErrors = it.pageErrors - "chats") } }
             .onFailure { e -> _state.update { it.copy(pageErrors = it.pageErrors + ("chats" to describe(e))) } }
+    }
+
+    fun refreshCrossings() = viewModelScope.launch {
+        runCatching { repo.crossings() }
+            .onSuccess { c ->
+                _state.update {
+                    it.copy(
+                        crossings = c.stars,
+                        crossingsWhy = c.why,
+                        dot = c.n ?: 0,
+                        pageErrors = it.pageErrors - "crossings",
+                    )
+                }
+            }
+            .onFailure { e ->
+                _state.update { it.copy(pageErrors = it.pageErrors + ("crossings" to describe(e))) }
+            }
+    }
+
+    fun refreshCard() = viewModelScope.launch {
+        runCatching { repo.card() }
+            .onSuccess { c -> _state.update { it.copy(card = c, pageErrors = it.pageErrors - "card") } }
+            .onFailure { e -> _state.update { it.copy(pageErrors = it.pageErrors + ("card" to describe(e))) } }
     }
 
     /** 玩家点了某颗星的「连上」。只能连网页允许的星。 */
@@ -227,6 +263,13 @@ class MainViewModel(private val repo: Repository) : ViewModel() {
                 .onFailure { e -> _state.update { it.copy(loading = false, error = describe(e)) } }
                 .getOrNull() ?: return@launch
             _state.update { it.copy(loading = false, device = dc, deviceLeft = dc.expiresIn) }
+            // 服务器只给了 profile：说明敏感权限没批下来，先让玩家知道，别让人对着空白页猜。
+            val granted = dc.scope.orEmpty()
+            if (granted.isNotBlank() && !granted.contains("crossings")) {
+                _state.update {
+                    it.copy(hint = "服务端这次只授予了《$granted》。星轨/互相连上要等应用审核通过后才能申请")
+                }
+            }
             val startedAt = System.currentTimeMillis()
             while (true) {
                 delay(dc.interval.coerceAtLeast(3) * 1000L)
@@ -338,7 +381,8 @@ fun describe(e: Throwable): String {
             "access_denied" -> "你在网页上点了取消"
             "expired_token" -> "连接码过期了，重新获取一枚"
             "invalid_scope" -> "申请了不认识的权限"
-            "client_missing", "client_unknown", "client_off" -> "这个接口要等应用审核通过（网页「我的资料 → 第三方客户端 → 申请审核」）"
+            "client_missing", "client_unknown", "client_off" ->
+                "客户端标识没被接受（${api.error}）。到网页「我的资料 → 第三方客户端」确认「我登记的应用」里还有「拾星」，名字改过会回到未审核"
             "client_mismatch" -> "客户端标识和取码时不一致"
             "scope_unreviewed" -> "敏感权限还没通过审核，这个账号暂时不能同意"
             "map_not_went" -> when (api.need) {

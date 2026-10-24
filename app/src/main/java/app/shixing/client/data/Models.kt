@@ -3,6 +3,9 @@ package app.shixing.client.data
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 /** `connect` 与星轨等接口里通用的「我」：点亮编号 + VRChat 名字。 */
 @Serializable
@@ -291,8 +294,16 @@ data class Post(
     val who: Peer? = null,
     val peer: Peer? = null,
     val card: Peer? = null,
+    /** 动态配图：接口给的是签名地址对象 `{id,url,w,h}`，也可能没有。 */
+    val img: JsonElement? = null,
 ) {
     val author: Peer? get() = who ?: peer ?: card
+
+    /** 签名地址 10 分钟内有效，直接给 AsyncImage 用，不用带请求头。 */
+    val imgUrl: String?
+        get() = runCatching {
+            img?.jsonObject?.get("url")?.jsonPrimitive?.contentOrNull
+        }.getOrNull()?.takeIf { it.startsWith("https://") }
 }
 
 @Serializable

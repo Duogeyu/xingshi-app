@@ -107,7 +107,11 @@ fun Home(vm: MainViewModel) {
         snackbarHost = { SnackbarHost(snack) },
         bottomBar = {
             if (state.session && !boardOpen && chatOpen == null) {
-                BottomBar(tab) { tab = it }
+                BottomBar(tab) { picked ->
+                    tab = picked
+                    // 切页就重新拉一次：审核/授权状态可能刚变，别把上一次的报错留在页面上。
+                    vm.refreshTab(picked)
+                }
             }
         },
     ) { pad ->

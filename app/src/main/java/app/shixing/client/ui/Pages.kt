@@ -10,6 +10,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
@@ -218,6 +221,19 @@ fun PostsPage(vm: MainViewModel, s: UiState) {
                     p.text?.takeIf { it.isNotBlank() }?.let {
                         Spacer(Modifier.height(8.dp))
                         Text(it, fontSize = 13.sp, color = MaterialTheme_color.ink, lineHeight = 20.sp)
+                    }
+                    p.imgUrl?.let { url ->
+                        Spacer(Modifier.height(10.dp))
+                        AsyncImage(
+                            model = url,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 280.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(MaterialTheme_color.card2),
+                        )
                     }
                     if (p.check == "wait" || p.check == "hidden") {
                         Spacer(Modifier.height(6.dp))
