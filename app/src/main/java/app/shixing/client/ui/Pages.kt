@@ -31,6 +31,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -46,6 +48,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -196,6 +199,8 @@ fun PostsPage(vm: MainViewModel, s: UiState) {
         ScreenTitle("星友圈", "大家发在星遇同频里的动态")
         PageError(vm, s, "posts")
         Spacer(Modifier.height(10.dp))
+        WritePostCard(vm)
+        Spacer(Modifier.height(10.dp))
         if (s.posts.isEmpty()) {
             Empty("还没有动态。")
         } else {
@@ -245,14 +250,23 @@ fun PostsPage(vm: MainViewModel, s: UiState) {
                     }
                     Spacer(Modifier.height(12.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Filled.ThumbUp,
-                            contentDescription = null,
-                            tint = MaterialTheme_color.ink3,
-                            modifier = Modifier.size(14.dp),
-                        )
-                        Spacer(Modifier.width(5.dp))
-                        Text("${p.lit}", fontSize = 12.sp, color = MaterialTheme_color.ink2)
+                        val lit = p.lit
+                        Row(
+                            Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable { vm.light(p.id, true) }
+                                .padding(horizontal = 6.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                Icons.Filled.ThumbUp,
+                                contentDescription = "点亮",
+                                tint = if (lit > 0) MaterialTheme_color.accent else MaterialTheme_color.ink3,
+                                modifier = Modifier.size(14.dp),
+                            )
+                            Spacer(Modifier.width(5.dp))
+                            Text("$lit", fontSize = 12.sp, color = MaterialTheme_color.ink2)
+                        }
                         Spacer(Modifier.width(16.dp))
                         Text("评论 ${p.cmts}", fontSize = 12.sp, color = MaterialTheme_color.ink2)
                         Spacer(Modifier.weight(1f))
@@ -813,6 +827,74 @@ private fun Bubble(m: Msg) {
                 fontSize = 10.sp,
                 color = if (mine) Color(0x9904121F) else MaterialTheme_color.ink2,
             )
+        }
+    }
+}
+
+/** 发一条星友圈：官方只说「只能发文字」，所以这里只有一个多行输入框。 */
+@Composable
+private fun WritePostCard(vm: MainViewModel) {
+    var open by remember { mutableStateOf(false) }
+    var text by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+
+    BoxCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "发一条",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme_color.ink,
+            )
+            Spacer(Modifier.weight(1f))
+            Text(
+                if (open) "收起" else "写点什么",
+                Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable { open = !open }
+                    .background(Color(0x1F4DB4FF))
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                fontSize = 12.sp,
+                color = MaterialTheme_color.accent,
+            )
+        }
+        if (open) {
+            Spacer(Modifier.height(10.dp))
+            OutlinedTextField(
+                value = text,
+                onValueChange = { if (it.length <= 500) text = it },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("写点给别的星看的话", fontSize = 13.sp) },
+                minLines = 3,
+                textStyle = TextStyle(fontSize = 14.sp, color = MaterialTheme_color.ink),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme_color.accent,
+                    unfocusedBorderColor = MaterialTheme_color.line,
+                    cursorColor = MaterialTheme_color.accent,
+                ),
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("${text.length} / 500", fontSize = 11.sp, color = MaterialTheme_color.ink3)
+                Spacer(Modifier.weight(1f))
+                Button(
+                    onClick = {
+                        busy = true
+                        vm.writePost(text.trim()) { msg ->
+                            busy = false
+                            if (msg == "ok") {
+                                text = ""
+                                open = false
+                            }
+                        }
+                    },
+                    enabled = !busy && text.isNotBlank(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme_color.accent,
+                        contentColor = Color(0xFF04121F),
+                    ),
+                ) { Text(if (busy) "发送中…" else "发出去", fontSize = 13.sp) }
+            }
         }
     }
 }

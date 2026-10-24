@@ -1,4 +1,4 @@
-package app.shixing.client.data
+﻿package app.shixing.client.data
 
 /**
  * 把「官方限流 + 本地配额 + 令牌存储」收在一层里，UI 只能经由它访问网络，
@@ -153,6 +153,19 @@ class Repository(private val store: TokenStore) {
     suspend fun posts(f: String = "all", before: Long? = null): PostsResp {
         Throttle.acquire("posts:$f", 5_000)
         return api.posts(f, before)
+    }
+
+    /** 点亮/取消。写操作只在玩家点击时调用。 */
+    suspend fun light(id: Long, on: Boolean = true): kotlinx.serialization.json.JsonObject {
+        Throttle.acquire("light", 2_000)
+        return api.light(id, on)
+    }
+
+    /** 发一条星友圈（每个令牌每天 5 条，超了服务端回 429）。 */
+    suspend fun writePost(text: String): kotlinx.serialization.json.JsonObject {
+        require(text.isNotBlank()) { "内容不能是空的" }
+        Throttle.acquire("write-post", 5_000)
+        return api.writePost(text)
     }
 
     suspend fun session(): Pair<Int?, String?> = store.star() to store.vrc()

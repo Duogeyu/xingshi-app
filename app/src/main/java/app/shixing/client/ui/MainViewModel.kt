@@ -1,4 +1,4 @@
-package app.shixing.client.ui
+﻿package app.shixing.client.ui
 
 import app.shixing.client.data.ApiException
 import app.shixing.client.data.BoardMap
@@ -196,6 +196,32 @@ class MainViewModel(private val repo: Repository) : ViewModel() {
         runCatching { repo.card() }
             .onSuccess { c -> _state.update { it.copy(card = c, pageErrors = it.pageErrors - "card") } }
             .onFailure { e -> _state.update { it.copy(pageErrors = it.pageErrors + ("card" to describe(e))) } }
+    }
+
+    /** 点亮一条动态：先本地加一，失败就把数字改回去。 */
+    fun light(id: Long, on: Boolean = true) = viewModelScope.launch {
+        _state.update { s: UiState ->
+            s.copy(posts = s.posts.map { p -> if (p.id == id) p.copy(lit = p.lit + if (on) 1 else -1) else p })
+        }
+        runCatching { repo.light(id, on) }
+            .onSuccess { showHint("已点亮") }
+            .onFailure { e ->
+                _state.update { s: UiState ->
+                    s.copy(posts = s.posts.map { p -> if (p.id == id) p.copy(lit = p.lit - if (on) 1 else -1) else p })
+                }
+                showHint(describe(e))
+            }
+    }
+
+    /** 发一条星友圈。onDone 回 "ok" 或错误文案。 */
+    fun writePost(text: String, onDone: (String) -> Unit) = viewModelScope.launch {
+        runCatching { repo.writePost(text) }
+            .onSuccess {
+                onDone("ok")
+                showHint("发出去了")
+                refreshPosts()
+            }
+            .onFailure { e -> onDone(describe(e)) }
     }
 
     /** 玩家点了某颗星的「连上」。只能连网页允许的星。 */

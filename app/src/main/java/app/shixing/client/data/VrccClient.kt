@@ -252,6 +252,26 @@ class VrccClient(
         )
     }
 
+    /** 点亮 / 取消点亮。需要 `posts.write`。 */
+    suspend fun light(id: Long, on: Boolean = true): JsonObject =
+        call(
+            "POST",
+            "me/posts/$id/light",
+            buildJsonObject { put("on", JsonPrimitive(on)) }.toString(),
+            true,
+            JsonObject.serializer(),
+        )
+
+    /** 发一条星友圈。官方限制：只能发文字。需要 `posts.write`。 */
+    suspend fun writePost(text: String): JsonObject =
+        call(
+            "POST",
+            "me/posts",
+            buildJsonObject { put("text", JsonPrimitive(text)) }.toString(),
+            true,
+            JsonObject.serializer(),
+        )
+
     private companion object {
         val JSON_TYPE = "application/json; charset=utf-8".toMediaType()
     }
