@@ -700,7 +700,11 @@ private fun InboxPage(
     var expandedThreads by remember { mutableStateOf(false) }
     var previewStar by remember { mutableStateOf<app.shixing.client.data.StarCard?>(null) }
 
-    Column(Modifier.fillMaxSize()) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
+    ) {
         // 顶：标题 + 进度
         Row(
             Modifier
@@ -860,14 +864,18 @@ private fun InboxPage(
             state = pager,
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 18.dp),
             pageSpacing = 12.dp,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(
+                    (
+                        (androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp - 36) * 0.86f / 0.75f
+                        ).dp + 34.dp,
+                ),
         ) { page ->
             val c = cards[page]
             LaunchedEffect(c.n) { if (s.cardPhotos[c.n] == null) vm.loadPhoto(c.n) }
             Column(
-                Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState()),
+                Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 // 状态行：来自X星群 · 和你重合 N%
@@ -902,7 +910,11 @@ private fun InboxPage(
                     photoGrid = s.cardPhotos[c.n]?.grid,
                     modifier = Modifier
                         .fillMaxWidth(0.86f)
-                        .aspectRatio(0.75f),
+                        .height(
+                            (
+                                (androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp - 36) * 0.86f / 0.75f
+                                ).dp,
+                        ),
                     intro = c.intro,
                     about = c.about.map { it.q to it.a },
                     footer = {

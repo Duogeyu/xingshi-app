@@ -52,6 +52,7 @@ import app.shixing.client.data.MyCard
 import app.shixing.client.data.SleeveStyle
 import app.shixing.client.data.StarCard
 import coil.compose.AsyncImage
+import androidx.compose.foundation.verticalScroll
 
 /** 卡面要显示的东西——自己和其他星都用同一套。 */
 data class CardFace(
@@ -404,6 +405,7 @@ fun StarCardBack(
     Column(
         Modifier
             .fillMaxSize()
+            .verticalScroll(androidx.compose.foundation.rememberScrollState(), enabled = true)
             .padding((17 + bk.framePad).dp),
     ) {
         (face.no ?: face.star)?.let { n ->
