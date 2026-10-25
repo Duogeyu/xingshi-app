@@ -123,7 +123,7 @@ fun StarCardFront(
 
     Box(
         (if (maxHeight != null) modifier.heightIn(max = maxHeight) else modifier)
-            .aspectRatio(0.70f)
+            .aspectRatio(0.75f)
             .clip(shape)
             .background(Color(0xFF0A0C13))
             .border((st.framePad + 1.2f).dp, ring, shape),
@@ -385,7 +385,7 @@ fun StarCardBack(
 
     Box(
         (if (maxHeight != null) modifier.heightIn(max = maxHeight) else modifier)
-            .aspectRatio(0.70f)
+            .aspectRatio(0.75f)
             .clip(shape)
             .background(bk.bg)
             .border((bk.framePad + 1.2f).dp, ring, shape),
@@ -970,6 +970,7 @@ private fun StickerLayer(spots: List<app.shixing.client.data.DecoSpot>) {
         val h = maxHeight
         spots.forEach { s ->
             val id = s.id ?: return@forEach
+            // 文档：摆放是 [x, y, 宽度, 旋转]，x/y 是贴纸中心（卡宽/卡高的百分比），宽度是卡宽的百分比
             val box = w * (s.size / 100f)
             val url = "https://vrcc.cc/api/v1/stickers/" + id +
                 "?fin=" + (s.fin ?: "paper") + "&wear=" + s.wear + "&seed=" + s.seed
