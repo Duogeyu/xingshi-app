@@ -346,7 +346,7 @@ fun MePage(
                 color = MaterialTheme_color.ink3,
                 modifier = Modifier.padding(top = 4.dp, bottom = 10.dp),
             )
-            LegacyRow("装扮", "卡面、卡背、卡套") { onOpenDeco() }
+            LegacyRow("装扮", "卡面、卡背") { onOpenDeco() }
             LegacyRow("我的仓库", "贴纸包、卡面、星尘") { onOpenLegacy("bag") }
             LegacyRow("兑换码", "兑换贴纸包和装扮") { onOpenLegacy("redeem") }
             LegacyRow("账号与设备", "看登录的设备、踢掉别人") { onOpenLegacy("account") }

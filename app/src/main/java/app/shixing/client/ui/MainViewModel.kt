@@ -110,7 +110,7 @@ class MainViewModel(private val repo: Repository) : ViewModel() {
 
         runCatching { repo.card() }.onSuccess { c ->
             _state.update { it.copy(card = c) }
-            c.star?.toLong()?.let { loadPhoto(it) }
+            (c.n ?: c.star)?.toLong()?.let { loadPhoto(it) }
         }.onFailure { errs["card"] = describe(it) }
 
         runCatching { repo.myMaps() }.onSuccess { m ->
@@ -464,3 +464,6 @@ fun describe(e: Throwable): String {
     }
     return e.message ?: "网络不太顺，稍后再试"
 }
+
+/** 自己的星编号：1.8.x 的 me/card 多了 n，照片要按它取才清晰。 */
+fun app.shixing.client.data.MyCard.myStarId(): Long? = (n ?: star)?.toLong()

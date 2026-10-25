@@ -190,7 +190,7 @@ fun Home(vm: MainViewModel) {
                 tab == 1 -> InboxPage(vm, state, legacyVm)
                 tab == 2 -> CrossingsPage(vm, state)
                 tab == 3 -> PostsPage(vm, state)
-                else -> MePage(vm, state, onOpenBoard = { boardOpen = true }, onOpenChat = { n -> chatOpen = n }, onOpenLegacy = { legacyRoute = it }, onOpenCard = { legacyRoute = "starcard" }, onOpenDeco = { legacyRoute = "deco" }, photoUrl = (state.card?.star?.toLong()?.let { state.cardPhotos[it]?.url }) ?: legacyState.photoUrl, photoGrid = state.card?.star?.toLong()?.let { state.cardPhotos[it]?.grid }, decoOverride = legacyState.deco)
+                else -> MePage(vm, state, onOpenBoard = { boardOpen = true }, onOpenChat = { n -> chatOpen = n }, onOpenLegacy = { legacyRoute = it }, onOpenCard = { legacyRoute = "starcard" }, onOpenDeco = { legacyRoute = "deco" }, photoUrl = (state.card?.myStarId()?.let { state.cardPhotos[it]?.url }) ?: legacyState.photoUrl, photoGrid = state.card?.myStarId()?.let { state.cardPhotos[it]?.grid }, decoOverride = legacyState.deco)
             }
         }
     }

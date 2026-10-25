@@ -165,6 +165,8 @@ data class CardScores(
 @Serializable
 data class MyCard(
     val star: Int? = null,
+    /** 自己的星编号（1.8.x 新增）：用它请求照片永远是清晰的。 */
+    val n: Int? = null,
     val name: String = "",
     val line: String = "",
     val group: String? = null,

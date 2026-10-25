@@ -78,7 +78,7 @@ fun DecoEditorScreen(
             }
             Spacer(Modifier.height(16.dp))
             Text(
-                "装扮走的是网页自己的接口，需要先在这台手机上登录一次网页版。登录之后，你拥有的卡面、卡背、卡套都会出现在这里。",
+                "装扮走的是网页自己的接口，需要先在这台手机上登录一次网页版。登录之后，你拥有的卡面、卡背都会出现在这里。",
                 fontSize = 13.sp,
                 color = MaterialTheme_color.ink2,
                 lineHeight = 20.sp,
