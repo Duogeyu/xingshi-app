@@ -64,7 +64,7 @@ import java.util.Locale
 // ---------------- 星轨 ----------------
 
 @Composable
-fun CrossingsPage(vm: MainViewModel, s: UiState) {
+fun CrossingsPage(vm: MainViewModel, s: UiState, showTitle: Boolean = true) {
     Column(
         Modifier
             .fillMaxSize()
@@ -72,7 +72,9 @@ fun CrossingsPage(vm: MainViewModel, s: UiState) {
             .padding(horizontal = 16.dp),
     ) {
         Spacer(Modifier.height(10.dp))
-        ScreenTitle("星轨", "与你在同一张地图里相遇的星")
+        if (showTitle) {
+            ScreenTitle("星轨", "与你在同一张地图里相遇的星")
+        }
         PageError(vm, s, "crossings")
 
         // 官方要求：why 为 hide 时整块不显示。

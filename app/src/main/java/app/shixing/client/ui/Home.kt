@@ -86,6 +86,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.aspectRatio
 
 /**
  * 五个页面，和网页的底栏一致：今天 / 连向我 / 星轨 / 星友圈 / 我的。
@@ -194,8 +195,7 @@ fun Home(vm: MainViewModel) {
             ) { chatOpen = null }
                 tab == 0 -> TodayPage(vm, state, legacyVm)
                 tab == 1 -> InboxPage(vm, state, legacyVm, onOpenChat = { n -> chatOpen = n })
-                tab == 2 -> CrossingsPage(vm, state)
-                tab == 3 -> PostsPage(vm, state)
+                tab == 2 -> PostsPage(vm, state)
                 else -> MePage(vm, state, onOpenBoard = { boardOpen = true }, onOpenChat = { n -> chatOpen = n }, onOpenLegacy = { legacyRoute = it }, onOpenCard = { legacyRoute = "starcard" }, onOpenDeco = { legacyRoute = "deco" }, photoUrl = (state.card?.myStarId()?.let { state.cardPhotos[it]?.url }) ?: legacyState.photoUrl, photoGrid = state.card?.myStarId()?.let { state.cardPhotos[it]?.grid }, decoOverride = legacyState.deco)
             }
         }
@@ -226,7 +226,6 @@ private fun BottomBar(current: Int, onPick: (Int) -> Unit) {
     val items: List<Pair<String, ImageVector>> = listOf(
         "今天" to Icons.Filled.DateRange,
         "连向我" to Icons.Filled.Email,
-        "星轨" to Icons.Filled.Star,
         "星友圈" to Icons.Filled.ThumbUp,
         "我的" to Icons.Filled.Person,
     )
@@ -439,6 +438,7 @@ private fun TodayPage(vm: MainViewModel, s: UiState, legacyVm: LegacyViewModel) 
     val t = s.today
     // 网页接口的卡带装扮与共同点，优先用；拿不到再退回 v1 的卡。
     val cards = legacyState.recs.ifEmpty { t?.cards.orEmpty() }
+    var subTab by remember { mutableStateOf(0) }
     val pager = androidx.compose.foundation.pager.rememberPagerState(pageCount = { cards.size })
     val scope = rememberCoroutineScope()
     val round = t?.round
@@ -694,6 +694,7 @@ private fun InboxPage(
     }.joinToString(" · ")
     val cards = legacyState.inbox.ifEmpty { i?.cards.orEmpty() }
     val pager = androidx.compose.foundation.pager.rememberPagerState(pageCount = { cards.size })
+    var subTab by remember { mutableStateOf(0) }
 
     Column(Modifier.fillMaxSize()) {
         // 顶：标题 + 进度
@@ -724,6 +725,37 @@ private fun InboxPage(
             color = MaterialTheme_color.ink2,
             modifier = Modifier.padding(horizontal = 18.dp),
         )
+
+        // 分段：连向我 / 星轨（星轨不再是底栏选项，收进这里）
+        Row(
+            Modifier
+                .padding(start = 18.dp, top = 10.dp)
+                .clip(RoundedCornerShape(99.dp))
+                .background(Color(0x14FFFFFF))
+                .padding(3.dp),
+        ) {
+            listOf("连向我", "星轨").forEachIndexed { idx, label ->
+                val on = subTab == idx
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(99.dp))
+                        .background(if (on) Color(0x1F4DB4FF) else Color.Transparent)
+                        .clickable { subTab = idx }
+                        .padding(horizontal = 14.dp, vertical = 5.dp),
+                ) {
+                    Text(
+                        label,
+                        fontSize = 12.sp,
+                        color = if (on) MaterialTheme_color.accent else MaterialTheme_color.ink2,
+                    )
+                }
+            }
+        }
+
+        if (subTab == 1) {
+            CrossingsPage(vm, s, showTitle = false)
+            return@Column
+        }
 
         // 上：和我连上的人（照片头像 + VRC 名 + 最后一句话）
         val threads = s.threads.ifEmpty { emptyList() }
@@ -809,7 +841,9 @@ private fun InboxPage(
             val c = cards[page]
             LaunchedEffect(c.n) { if (s.cardPhotos[c.n] == null) vm.loadPhoto(c.n) }
             Column(
-                Modifier.fillMaxSize(),
+                Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 // 状态行：来自X星群 · 和你重合 N%
@@ -836,48 +870,54 @@ private fun InboxPage(
                         color = if (c.mutual) Color(0xFF2FD08A) else MaterialTheme_color.ink2,
                     )
                 }
-                androidx.compose.foundation.layout.BoxWithConstraints(
-                    Modifier.weight(1f).fillMaxWidth(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    val cw = minOf(maxWidth, maxHeight * 0.75f)
-                    FlippableStarCard(
-                        face = c.toFace().copy(overlap = overlapOf(s.card?.scores?.asMap(), c.scores)),
-                        photoUrl = s.cardPhotos[c.n]?.url ?: legacyState.photos[c.n],
-                        photoGrid = s.cardPhotos[c.n]?.grid,
-                        modifier = Modifier
-                            .width(cw)
-                            .height(cw / 0.75f),
-                        intro = c.intro,
-                        about = c.about.map { it.q to it.a },
-                        footer = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    if (c.mutual) "互相连上" else if (c.linked) "已连线" else "未连",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme_color.ink2,
-                                )
-                                Spacer(Modifier.weight(1f))
-                                if (c.mutual) {
-                                    Box(
-                                        Modifier
-                                            .clip(RoundedCornerShape(99.dp))
-                                            .background(Color(0x332FD08A))
-                                            .clickable { onOpenChat(c.n) }
-                                            .padding(horizontal = 10.dp, vertical = 5.dp),
-                                    ) { Text("聊天", fontSize = 11.sp, color = Color(0xFF2FD08A)) }
-                                } else {
-                                    Box(
-                                        Modifier
-                                            .clip(RoundedCornerShape(99.dp))
-                                            .background(Color(0x332FD08A))
-                                            .clickable { vm.link(c.n, null, null) { m -> vm.showHint(m) } }
-                                            .padding(horizontal = 10.dp, vertical = 5.dp),
-                                    ) { Text("连一条线", fontSize = 11.sp, color = Color(0xFF2FD08A)) }
-                                }
+                Spacer(Modifier.height(4.dp))
+                androidx.compose.runtime.key(c.n) {
+                FlippableStarCard(
+                    face = c.toFace().copy(overlap = overlapOf(s.card?.scores?.asMap(), c.scores)),
+                    photoUrl = s.cardPhotos[c.n]?.url ?: legacyState.photos[c.n],
+                    photoGrid = s.cardPhotos[c.n]?.grid,
+                    modifier = Modifier
+                        .fillMaxWidth(0.94f)
+                        .aspectRatio(0.75f),
+                    intro = c.intro,
+                    about = c.about.map { it.q to it.a },
+                    footer = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                when {
+                                    c.mutual -> "互相连上"
+                                    c.linked -> "已连线"
+                                    else -> "未连"
+                                },
+                                fontSize = 11.sp,
+                                color = MaterialTheme_color.ink2,
+                            )
+                            val fr = c.friends ?: 0
+                            if (fr > 0) {
+                                Spacer(Modifier.width(8.dp))
+                                Text("共同星友 $fr", fontSize = 11.sp, color = MaterialTheme_color.ink2)
                             }
-                        },
-                    )
+                            Spacer(Modifier.weight(1f))
+                            if (c.mutual) {
+                                Box(
+                                    Modifier
+                                        .clip(RoundedCornerShape(99.dp))
+                                        .background(Color(0x332FD08A))
+                                        .clickable { onOpenChat(c.n) }
+                                        .padding(horizontal = 10.dp, vertical = 5.dp),
+                                ) { Text("聊天", fontSize = 11.sp, color = Color(0xFF2FD08A)) }
+                            } else {
+                                Box(
+                                    Modifier
+                                        .clip(RoundedCornerShape(99.dp))
+                                        .background(Color(0x332FD08A))
+                                        .clickable { vm.link(c.n, null, null) { m -> vm.showHint(m) } }
+                                        .padding(horizontal = 10.dp, vertical = 5.dp),
+                                ) { Text("连一条线", fontSize = 11.sp, color = Color(0xFF2FD08A)) }
+                            }
+                        }
+                    },
+                )
                 }
             }
         }

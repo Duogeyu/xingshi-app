@@ -151,9 +151,11 @@ class MainViewModel(private val repo: Repository) : ViewModel() {
     fun refreshTab(index: Int) {
         when (index) {
             0 -> refreshToday()
-            1 -> refreshInbox()
-            2 -> refreshCrossings()
-            3 -> refreshPosts()
+            1 -> {
+                refreshInbox()
+                refreshCrossings()
+            }
+            2 -> refreshPosts()
             else -> {
                 refreshChats()
                 refreshCard()
