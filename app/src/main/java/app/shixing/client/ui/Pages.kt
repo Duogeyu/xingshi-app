@@ -301,6 +301,7 @@ fun MePage(
     onOpenChat: (Long) -> Unit,
     onOpenLegacy: (String) -> Unit = {},
     onOpenCard: () -> Unit = {},
+    photoUrl: String? = null,
 ) {
     Column(
         Modifier
@@ -311,71 +312,20 @@ fun MePage(
         Spacer(Modifier.height(10.dp))
         ScreenTitle("我的")
 
-        // 星卡
+
+        // 星卡：默认就摊开显示（和网页一样），点一下翻面
         PageError(vm, s, "card")
         s.card?.let { c ->
-            Spacer(Modifier.height(10.dp))
-            BoxCard(Modifier.clickable(onClick = onOpenCard)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Avatar(c.name, c.group, 52.dp)
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(c.name, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme_color.ink)
-                        Spacer(Modifier.height(4.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            GroupPill(c.group)
-                            Spacer(Modifier.width(6.dp))
-                            c.vibe?.let {
-                                Pill(it, Color(0x1FFFFFFF), MaterialTheme_color.ink2)
-                                Spacer(Modifier.width(6.dp))
-                            }
-                            Text("星号 ${c.star ?: "-"}", fontSize = 12.sp, color = MaterialTheme_color.ink2)
-                        }
-                    }
-                }
-                c.line.takeIf { it.isNotBlank() }?.let {
-                    Spacer(Modifier.height(10.dp))
-                    Text(it, fontSize = 13.sp, color = MaterialTheme_color.ink, lineHeight = 20.sp)
-                }
-                c.intro?.takeIf { it.isNotBlank() }?.let {
-                    Spacer(Modifier.height(8.dp))
-                    Text(it, fontSize = 13.sp, color = MaterialTheme_color.ink, lineHeight = 20.sp)
-                }
-                c.scores?.let { sc ->
-                    Spacer(Modifier.height(10.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        sc.pairs().forEach { (g, v) ->
-                            Column(Modifier.weight(1f)) {
-                                Text(
-                                    app.shixing.client.data.Groups.label(g),
-                                    fontSize = 10.sp,
-                                    color = MaterialTheme_color.ink2,
-                                )
-                                Spacer(Modifier.height(3.dp))
-                                Box(
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .height(4.dp)
-                                        .clip(RoundedCornerShape(2.dp))
-                                        .background(MaterialTheme_color.card2),
-                                ) {
-                                    Box(
-                                        Modifier
-                                            .fillMaxWidth(v / 100f)
-                                            .height(4.dp)
-                                            .background(Color(app.shixing.client.data.Groups.color(g))),
-                                    )
-                                }
-                                Spacer(Modifier.height(2.dp))
-                                Text("$v", fontSize = 10.sp, color = MaterialTheme_color.ink2)
-                            }
-                        }
-                    }
-                }
-            }
+            Spacer(Modifier.height(12.dp))
+            FlippableStarCard(
+                face = c.toFace(),
+                photoUrl = photoUrl,
+                modifier = Modifier.fillMaxWidth(),
+                intro = c.intro,
+            )
         }
 
-                Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(12.dp))
         BoxCard {
             Text(
                 "网页功能",

@@ -173,11 +173,11 @@ fun Home(vm: MainViewModel) {
                     vm = vm,
                 )
                 chatPeer != null -> ChatPage(vm, chatPeer) { chatOpen = null }
-                tab == 0 -> TodayPage(vm, state)
-                tab == 1 -> InboxPage(vm, state)
+                tab == 0 -> TodayPage(vm, state, legacyVm)
+                tab == 1 -> InboxPage(vm, state, legacyVm)
                 tab == 2 -> CrossingsPage(vm, state)
                 tab == 3 -> PostsPage(vm, state)
-                else -> MePage(vm, state, onOpenBoard = { boardOpen = true }, onOpenChat = { n -> chatOpen = n }, onOpenLegacy = { legacyRoute = it }, onOpenCard = { legacyRoute = "starcard" })
+                else -> MePage(vm, state, onOpenBoard = { boardOpen = true }, onOpenChat = { n -> chatOpen = n }, onOpenLegacy = { legacyRoute = it }, onOpenCard = { legacyRoute = "starcard" }, photoUrl = legacyState.photoUrl)
             }
         }
     }
@@ -412,7 +412,11 @@ private fun left(sec: Int): String {
 // ---------------- 今天 ----------------
 
 @Composable
-private fun TodayPage(vm: MainViewModel, s: UiState) {
+private fun TodayPage(vm: MainViewModel, s: UiState, legacyVm: LegacyViewModel) {
+    val legacyState by legacyVm.state.collectAsStateWithLifecycle()
+    LaunchedEffect(s.today?.cards) {
+        legacyVm.loadPhotos(s.today?.cards?.map { it.n } ?: emptyList())
+    }
     val t = s.today
     Column(
         Modifier
@@ -452,7 +456,7 @@ private fun TodayPage(vm: MainViewModel, s: UiState) {
             Empty("这一轮还没有星路过。")
         } else {
             t.cards.forEach { c ->
-                StarCardItem(c, onLink = { vm.link(c.n, null, null) { m -> vm.showHint(m) } })
+                StarCardItem(c, photoUrl = legacyState.photos[c.n], onLink = { vm.link(c.n, null, null) { m -> vm.showHint(m) } })
                 Spacer(Modifier.height(10.dp))
             }
         }
@@ -474,7 +478,11 @@ private fun TodayPage(vm: MainViewModel, s: UiState) {
 // ---------------- 连向我 ----------------
 
 @Composable
-private fun InboxPage(vm: MainViewModel, s: UiState) {
+private fun InboxPage(vm: MainViewModel, s: UiState, legacyVm: LegacyViewModel) {
+    val legacyState by legacyVm.state.collectAsStateWithLifecycle()
+    LaunchedEffect(s.inbox?.cards) {
+        legacyVm.loadPhotos(s.inbox?.cards?.map { it.n } ?: emptyList())
+    }
     val i = s.inbox
     Column(
         Modifier
@@ -516,83 +524,47 @@ private fun InboxPage(vm: MainViewModel, s: UiState) {
 // ---------------- 共用零件 ----------------
 
 @Composable
-fun StarCardItem(c: StarCard, onLink: (() -> Unit)? = null) {
-    BoxCard(tint = Color(Groups.color(c.group))) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Avatar(c.name, c.group, 40.dp)
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        c.name ?: "一颗星",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme_color.ink,
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    GroupPill(c.group)
-                    if (c.verified) {
-                        Spacer(Modifier.width(6.dp))
-                        Pill("已验证", Color(0x332FD08A), Color(0xFF2FD08A))
+fun StarCardItem(c: StarCard, photoUrl: String? = null, onLink: (() -> Unit)? = null) {
+    FlippableStarCard(
+        face = c.toFace(),
+        photoUrl = null,
+        modifier = Modifier.fillMaxWidth(),
+        intro = c.intro,
+        about = c.about.map { it.q to it.a },
+        footer = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (c.mutual) {
+                    Pill("互相连上", Color(0x332FD08A), Color(0xFF2FD08A))
+                    c.vrc?.let {
+                        Spacer(Modifier.width(8.dp))
+                        Text("VRChat：$it", fontSize = 11.sp, color = MaterialTheme_color.ink2)
                     }
+                } else if (c.linked) {
+                    Pill("已连上", Color(0x33FFB547), Color(0xFFFFB547))
+                } else {
+                    Pill("未连", Color(0x1FFFFFFF), MaterialTheme_color.ink2)
                 }
-                c.line?.takeIf { it.isNotBlank() }?.let {
-                    Spacer(Modifier.height(4.dp))
-                    Text(it, fontSize = 12.sp, color = MaterialTheme_color.ink2)
-                }
-            }
-            Text("#${c.star ?: c.n}", fontSize = 12.sp, color = MaterialTheme_color.ink2)
-        }
-
-        c.intro?.takeIf { it.isNotBlank() }?.let {
-            Spacer(Modifier.height(8.dp))
-            Text(it, fontSize = 13.sp, color = MaterialTheme_color.ink, lineHeight = 20.sp)
-        }
-
-        if (c.about.isNotEmpty()) {
-            Spacer(Modifier.height(8.dp))
-            c.about.take(3).forEach { qa ->
-                val q = qa.q ?: return@forEach
-                Column(Modifier.padding(bottom = 4.dp)) {
-                    Text("· $q", fontSize = 12.sp, color = MaterialTheme_color.ink2)
-                    Text(qa.a ?: "", fontSize = 12.sp, color = MaterialTheme_color.ink)
-                }
-            }
-        }
-
-        Spacer(Modifier.height(10.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (c.mutual) {
-                Pill("互相连上", Color(0x332FD08A), Color(0xFF2FD08A))
-                c.vrc?.let {
+                c.friends?.let {
                     Spacer(Modifier.width(8.dp))
-                    Text("VRChat：$it", fontSize = 12.sp, color = MaterialTheme_color.ink2)
+                    Text("共同星友 $it", fontSize = 11.sp, color = MaterialTheme_color.ink2)
                 }
-            } else if (c.linked) {
-                Pill("已连上", Color(0x33FFB547), Color(0xFFFFB547))
-            } else {
-                Pill("未连", Color(0x1FFFFFFF), MaterialTheme_color.ink2)
+                Spacer(Modifier.weight(1f))
+                if (onLink != null && !c.linked) {
+                    Text(
+                        "连上",
+                        Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable { onLink() }
+                            .background(MaterialTheme_color.accent)
+                            .padding(horizontal = 14.dp, vertical = 6.dp),
+                        fontSize = 12.sp,
+                        color = Color(0xFF04121F),
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
             }
-            c.friends?.let {
-                Spacer(Modifier.width(8.dp))
-                Text("共同星友 $it", fontSize = 12.sp, color = MaterialTheme_color.ink2)
-            }
-            Spacer(Modifier.weight(1f))
-            if (onLink != null && !c.linked) {
-                Text(
-                    "连上",
-                    Modifier
-                        .clip(RoundedCornerShape(10.dp))
-                        .clickable { onLink() }
-                        .background(MaterialTheme_color.accent)
-                        .padding(horizontal = 14.dp, vertical = 6.dp),
-                    fontSize = 13.sp,
-                    color = Color(0xFF04121F),
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
-        }
-    }
+        },
+    )
 }
 
 @Composable

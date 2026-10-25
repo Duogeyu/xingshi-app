@@ -82,6 +82,7 @@ class LegacyViewModel(private val appContext: android.content.Context) : ViewMod
         val showLogin: Boolean = false,
         val photoUrl: String? = null,
         val photoFor: Long? = null,
+        val photos: Map<Long, String> = emptyMap(),
     )
 
     private val client = LegacyClient(keyProvider = { LegacyKey.get(appContext) })
@@ -95,6 +96,26 @@ class LegacyViewModel(private val appContext: android.content.Context) : ViewMod
 
     fun openLogin() = _state.update { it.copy(showLogin = true) }
     /** 取一张星卡照片（网页同款动作，需要本机有网页设备密钥）。 */
+    /** 批量取几张照片（网页同款动作，最多 24 张一次）。 */
+    fun loadPhotos(stars: List<Long>) {
+        if (LegacyKey.get(appContext) == null) return
+        val have = _state.value.photos
+        val need = stars.distinct().filter { have[it] == null }
+        if (need.isEmpty()) return
+        viewModelScope.launch {
+            runCatching { client.photos(need.take(24).map { it to 2 }) }.onSuccess { array ->
+                val add = mutableMapOf<Long, String>()
+                need.take(24).forEachIndexed { i, n ->
+                    val img = (array.getOrNull(i) as? JsonObject)?.str("img")
+                    if (!img.isNullOrBlank()) add[n] = img
+                }
+                if (add.isNotEmpty()) {
+                    _state.update { it.copy(photos = it.photos + add) }
+                }
+            }
+        }
+    }
+
     fun loadPhoto(star: Long) {
         if (_state.value.photoFor == star && _state.value.photoUrl != null) return
         if (LegacyKey.get(appContext) == null) return

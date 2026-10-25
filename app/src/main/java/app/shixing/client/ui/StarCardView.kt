@@ -30,34 +30,62 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.shixing.client.data.CardScores
 import app.shixing.client.data.Groups
 import app.shixing.client.data.MyCard
+import app.shixing.client.data.StarCard
 import coil.compose.AsyncImage
 
-/**
- * 和网页版同款的星卡：竖版、带外描边、顶部编号、底部星星名与四维条。
- * 点一下翻到背面（自己看的时候）——背面是四维数值和介绍。
- */
+/** 卡面要显示的东西——自己和其他星都用同一套。 */
+data class CardFace(
+    val name: String,
+    val star: Int?,
+    val line: String?,
+    val group: String?,
+    val verified: Boolean = false,
+    val scores: CardScores? = null,
+    /** 卡面上的编号：自己的用 star，别人的用 n。 */
+    val no: Int? = null,
+)
+
+fun MyCard.toFace(): CardFace = CardFace(
+    name = name,
+    star = star,
+    line = line,
+    group = group,
+    verified = true,
+    scores = scores,
+    no = star,
+)
+
+fun StarCard.toFace(): CardFace = CardFace(
+    name = name ?: "一颗星",
+    star = star,
+    line = line,
+    group = group,
+    verified = verified,
+    scores = null,
+    no = star ?: n.toInt(),
+)
+
+private val GOLD = Color(0xFFE8C983)
+
 @Composable
-fun StarCardFace(
-    card: MyCard,
+fun StarCardFront(
+    face: CardFace,
     photoUrl: String?,
     modifier: Modifier = Modifier,
     faceLabel: String? = null,
 ) {
     val shape = RoundedCornerShape(26.dp)
-    val group = card.group
-    val accent = Color(Groups.color(group ?: "G"))
-    val ring = Brush.linearGradient(listOf(Color(0xFFE8C983), Color(0xFF8A6A32)))
+    val accent = Color(Groups.color(face.group ?: "G"))
+    val ring = Brush.linearGradient(listOf(GOLD, Color(0xFF8A6A32)))
 
     Box(
         modifier
@@ -66,7 +94,6 @@ fun StarCardFace(
             .background(Color(0xFF0A0C13))
             .border(2.dp, ring, shape),
     ) {
-        // 底色：有照片就铺照片，没有就用群组色的暗渐变
         if (photoUrl != null) {
             AsyncImage(
                 model = photoUrl,
@@ -88,7 +115,6 @@ fun StarCardFace(
             )
         }
 
-        // 底部压暗，保证文字可读
         Box(
             Modifier
                 .fillMaxSize()
@@ -111,16 +137,18 @@ fun StarCardFace(
                 Text(
                     "VRCHAT 中文社区 · 星遇同频",
                     fontSize = 8.sp,
-                    color = Color(0xFFE8C983),
+                    color = GOLD,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Spacer(Modifier.weight(1f))
-                Text(
-                    "No." + (card.star?.toString()?.padStart(5, '0') ?: "-----"),
-                    fontSize = 15.sp,
-                    color = Color(0xFFE8C983),
-                    fontWeight = FontWeight.Bold,
-                )
+                (face.no ?: face.star)?.let { n ->
+                    Text(
+                        "No." + n.toString().padStart(5, '0'),
+                        fontSize = 15.sp,
+                        color = GOLD,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
             }
 
             if (faceLabel != null) {
@@ -132,7 +160,7 @@ fun StarCardFace(
                             .background(Color(0xCC0B0D14))
                             .padding(horizontal = 8.dp, vertical = 2.dp),
                         fontSize = 8.sp,
-                        color = Color(0xFFE8C983),
+                        color = GOLD,
                     )
                 }
             }
@@ -142,41 +170,41 @@ fun StarCardFace(
             Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        "来自" + GroupName.of(group),
+                        "来自" + GroupName.of(face.group),
                         fontSize = 11.sp,
-                        color = Color(0xFFE8C983),
+                        color = GOLD,
                         fontWeight = FontWeight.SemiBold,
                     )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        "✓ 已验证",
-                        Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(Color(0x334DB4FF))
-                            .padding(horizontal = 5.dp, vertical = 1.dp),
-                        fontSize = 9.sp,
-                        color = Color(0xFF8FCBFF),
-                    )
+                    if (face.verified) {
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            "✓ 已验证",
+                            Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color(0x334DB4FF))
+                                .padding(horizontal = 5.dp, vertical = 1.dp),
+                            fontSize = 9.sp,
+                            color = Color(0xFF8FCBFF),
+                        )
+                    }
                 }
                 Text(
-                    card.name,
+                    face.name,
                     fontSize = 26.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFFF3F4F8),
                     modifier = Modifier.padding(top = 4.dp),
                 )
-                if (card.line.isNotBlank()) {
+                face.line?.takeIf { it.isNotBlank() }?.let {
                     Text(
-                        card.line,
+                        it,
                         fontSize = 12.sp,
                         color = Color(0xFFE9E4D6),
                         lineHeight = 18.sp,
                         modifier = Modifier.padding(top = 4.dp),
                     )
                 }
-                card.scores?.let { scores ->
-                    ScoreBar(scores, Modifier.padding(top = 12.dp))
-                }
+                face.scores?.let { scores -> ScoreBar(scores, Modifier.padding(top = 12.dp)) }
             }
         }
     }
@@ -195,10 +223,9 @@ private fun ScoreBar(scores: CardScores, modifier: Modifier = Modifier) {
                 .clip(RoundedCornerShape(3.dp)),
         ) {
             ordered.forEach { (group, value) ->
-                val weight = value.coerceAtLeast(1).toFloat()
                 Box(
                     Modifier
-                        .weight(weight)
+                        .weight(value.coerceAtLeast(1).toFloat())
                         .height(5.dp)
                         .background(Color(Groups.color(group))),
                 )
@@ -230,11 +257,17 @@ private fun ScoreBar(scores: CardScores, modifier: Modifier = Modifier) {
     }
 }
 
-/** 背面：四维数值 + 介绍 + 关于我。 */
+/** 背面：四维（自己有）+ 介绍 + 关于我 + 底部按钮。 */
 @Composable
-fun StarCardBack(card: MyCard, modifier: Modifier = Modifier) {
+fun StarCardBack(
+    face: CardFace,
+    modifier: Modifier = Modifier,
+    intro: String? = null,
+    about: List<Pair<String?, String?>> = emptyList(),
+    footer: (@Composable () -> Unit)? = null,
+) {
     val shape = RoundedCornerShape(26.dp)
-    val ring = Brush.linearGradient(listOf(Color(0xFFE8C983), Color(0xFF8A6A32)))
+    val ring = Brush.linearGradient(listOf(GOLD, Color(0xFF8A6A32)))
 
     Column(
         modifier
@@ -242,72 +275,139 @@ fun StarCardBack(card: MyCard, modifier: Modifier = Modifier) {
             .clip(shape)
             .background(Color(0xFF0B0D15))
             .border(2.dp, ring, shape)
-            .padding(20.dp),
+            .padding(18.dp),
     ) {
+        (face.no ?: face.star)?.let { n ->
+            Text(
+                "No." + n.toString().padStart(5, '0'),
+                fontSize = 12.sp,
+                color = GOLD,
+                fontWeight = FontWeight.Bold,
+            )
+        }
         Text(
-            "No." + (card.star?.toString()?.padStart(5, '0') ?: "-----"),
-            fontSize = 13.sp,
-            color = Color(0xFFE8C983),
-            fontWeight = FontWeight.Bold,
-        )
-        Text(
-            card.name,
-            fontSize = 24.sp,
+            face.name,
+            fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
             color = Color(0xFFF3F4F8),
-            modifier = Modifier.padding(top = 6.dp),
+            modifier = Modifier.padding(top = 4.dp),
         )
-        Text(
-            card.line,
-            fontSize = 12.sp,
-            color = MaterialTheme_color.ink2,
-            lineHeight = 19.sp,
-            modifier = Modifier.padding(top = 6.dp),
-        )
+        face.line?.takeIf { it.isNotBlank() }?.let {
+            Text(
+                it,
+                fontSize = 11.sp,
+                color = MaterialTheme_color.ink2,
+                lineHeight = 17.sp,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
 
-        Spacer(Modifier.height(16.dp))
-        card.scores?.pairs()?.forEach { (group, value) ->
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 5.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(Groups.label(group), fontSize = 12.sp, color = MaterialTheme_color.ink2, modifier = Modifier.width(40.dp))
-                Box(
+        face.scores?.let { scores ->
+            Spacer(Modifier.height(12.dp))
+            scores.pairs().forEach { (group, value) ->
+                Row(
                     Modifier
-                        .weight(1f)
-                        .height(6.dp)
-                        .clip(RoundedCornerShape(3.dp))
-                        .background(MaterialTheme_color.card2),
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    Text(
+                        Groups.label(group),
+                        fontSize = 11.sp,
+                        color = MaterialTheme_color.ink2,
+                        modifier = Modifier.width(36.dp),
+                    )
                     Box(
                         Modifier
-                            .fillMaxWidth((value / 100f).coerceIn(0f, 1f))
+                            .weight(1f)
                             .height(6.dp)
-                            .background(Color(Groups.color(group)), RoundedCornerShape(3.dp)),
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(MaterialTheme_color.card2),
+                    ) {
+                        Box(
+                            Modifier
+                                .fillMaxWidth((value / 100f).coerceIn(0f, 1f))
+                                .height(6.dp)
+                                .background(Color(Groups.color(group)), RoundedCornerShape(3.dp)),
+                        )
+                    }
+                    Text(
+                        "$value",
+                        fontSize = 11.sp,
+                        color = MaterialTheme_color.ink,
+                        modifier = Modifier
+                            .width(32.dp)
+                            .padding(start = 6.dp),
+                        textAlign = TextAlign.End,
                     )
                 }
-                Text(
-                    "$value",
-                    fontSize = 12.sp,
-                    color = MaterialTheme_color.ink,
-                    modifier = Modifier
-                        .width(34.dp)
-                        .padding(start = 8.dp),
-                    textAlign = TextAlign.End,
-                )
             }
         }
 
-        card.intro?.takeIf { it.isNotBlank() }?.let {
-            Spacer(Modifier.height(14.dp))
-            Text(it, fontSize = 12.sp, color = MaterialTheme_color.ink2, lineHeight = 19.sp)
+        intro?.takeIf { it.isNotBlank() }?.let {
+            Spacer(Modifier.height(10.dp))
+            Text(it, fontSize = 12.sp, color = MaterialTheme_color.ink2, lineHeight = 18.sp)
+        }
+
+        about.take(3).forEach { (q, a) ->
+            if (!q.isNullOrBlank() || !a.isNullOrBlank()) {
+                Column(Modifier.padding(top = 8.dp)) {
+                    if (!q.isNullOrBlank()) {
+                        Text("· $q", fontSize = 10.sp, color = MaterialTheme_color.ink3)
+                    }
+                    Text(a.orEmpty(), fontSize = 12.sp, color = MaterialTheme_color.ink, lineHeight = 18.sp)
+                }
+            }
+        }
+
+        Spacer(Modifier.weight(1f))
+        footer?.invoke()
+    }
+}
+
+/** 一张能翻面的星卡：默认显示正面，点一下翻到背面。 */
+@Composable
+fun FlippableStarCard(
+    face: CardFace,
+    photoUrl: String?,
+    modifier: Modifier = Modifier,
+    faceLabel: String? = null,
+    intro: String? = null,
+    about: List<Pair<String?, String?>> = emptyList(),
+    footer: (@Composable () -> Unit)? = null,
+) {
+    var flipped by remember(face.star) { mutableStateOf(false) }
+    val rotation by animateFloatAsState(
+        targetValue = if (flipped) 180f else 0f,
+        animationSpec = tween(420),
+        label = "flip",
+    )
+
+    Box(
+        modifier
+            .graphicsLayer {
+                rotationY = rotation
+                cameraDistance = 12f * density
+            }
+            .clickable { flipped = !flipped },
+    ) {
+        if (rotation <= 90f) {
+            StarCardFront(face, photoUrl, Modifier.fillMaxWidth(), faceLabel)
+        } else {
+            Box(Modifier.graphicsLayer { rotationY = 180f }) {
+                StarCardBack(
+                    face = face,
+                    modifier = Modifier.fillMaxWidth(),
+                    intro = intro,
+                    about = about,
+                    footer = footer,
+                )
+            }
         }
     }
 }
 
-/** 全屏的「我的星卡」：点一下翻面。 */
+/** 全屏的「我的星卡」页（现在「我的」页里直接用卡片本身）。 */
 @Composable
 fun MyCardScreen(
     card: MyCard?,
@@ -315,13 +415,6 @@ fun MyCardScreen(
     faceLabel: String?,
     onBack: () -> Unit,
 ) {
-    var flipped by remember { mutableStateOf(false) }
-    val rotation by animateFloatAsState(
-        targetValue = if (flipped) 180f else 0f,
-        animationSpec = tween(420),
-        label = "flip",
-    )
-
     Column(
         Modifier
             .fillMaxSize()
@@ -357,23 +450,13 @@ fun MyCardScreen(
             if (card == null) {
                 Text("星卡还没拿到", fontSize = 13.sp, color = MaterialTheme_color.ink3)
             } else {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .graphicsLayer {
-                            rotationY = rotation
-                            cameraDistance = 12f * density
-                        }
-                        .clickable { flipped = !flipped },
-                ) {
-                    if (rotation <= 90f) {
-                        StarCardFace(card, photoUrl, Modifier.fillMaxWidth(), faceLabel)
-                    } else {
-                        Box(Modifier.graphicsLayer { rotationY = 180f }) {
-                            StarCardBack(card, Modifier.fillMaxWidth())
-                        }
-                    }
-                }
+                FlippableStarCard(
+                    face = card.toFace(),
+                    photoUrl = photoUrl,
+                    modifier = Modifier.fillMaxWidth(),
+                    faceLabel = faceLabel,
+                    intro = card.intro,
+                )
             }
         }
         Spacer(Modifier.height(20.dp))
