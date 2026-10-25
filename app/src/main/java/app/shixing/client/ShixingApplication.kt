@@ -34,6 +34,15 @@ class ShixingApplication : Application() {
                 log("photosSelf", c.photos(listOf(584L to 2)).toString().take(400))
             }.onFailure { log("photosErr", it.message) }
             runCatching {
+                log("recs0", c.recs().firstOrNull()?.toString()?.take(600))
+            }.onFailure { log("recsErr", it.message) }
+            runCatching {
+                log("inbox0", c.inbox().firstOrNull()?.toString()?.take(600))
+            }.onFailure { log("inboxErr", it.message) }
+            runCatching {
+                log("photosSelf2", c.photos(listOf(584L to 2)).toString().take(300))
+            }.onFailure { log("photosErr2", it.message) }
+            runCatching {
                 val bag = c.bag()
                 log("bag.keys", bag.keys.joinToString(","))
                 log("bag.head", bag.toString().take(500))

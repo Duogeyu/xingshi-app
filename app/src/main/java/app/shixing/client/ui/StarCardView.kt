@@ -487,7 +487,6 @@ fun StarCardBack(
     }
     }
 }
-
 /** 一张能翻面的星卡：默认显示正面，点一下翻到背面。 */
 @Composable
 fun FlippableStarCard(
@@ -506,39 +505,138 @@ fun FlippableStarCard(
         animationSpec = tween(420),
         label = "flip",
     )
+    val sleeve = DecoCatalog.sleeve(face.deco?.sleeve)
+    val pad = if (sleeve != null) 11.dp else 0.dp
 
-    Box(
-        modifier
-            .graphicsLayer {
-                rotationY = rotation
-                cameraDistance = 12f * density
-            }
-            .clickable { flipped = !flipped },
-    ) {
-        if (rotation <= 90f) {
-            StarCardFront(face, photoUrl, Modifier.fillMaxWidth(), faceLabel, maxHeight)
-        } else {
-            Box(Modifier.graphicsLayer { rotationY = 180f }) {
-                StarCardBack(
-                    face = face,
-                    modifier = Modifier.fillMaxWidth(),
-                    intro = intro,
-                    about = about,
-                    footer = footer,
-                    maxHeight = maxHeight,
-                )
-            }
-        }
-        // 卡套装上了就让塑料壳盖在卡上
-        DecoCatalog.sleeve(face.deco?.sleeve)?.let { sv ->
+    Box(modifier) {
+        // 壳先铺满，卡再缩进去一圈，四周都能看到卡套
+        if (sleeve != null) SleeveShell(sleeve)
+        Box(
+            Modifier
+                .fillMaxSize()
+                .padding(start = pad, end = pad, top = pad, bottom = pad + 8.dp)
+                .graphicsLayer {
+                    rotationY = rotation
+                    cameraDistance = 12f * density
+                }
+                .clickable { flipped = !flipped },
+            contentAlignment = Alignment.TopCenter,
+        ) {
             if (rotation <= 90f) {
-                SleeveOverlay(sv)
+                StarCardFront(face, photoUrl, Modifier.fillMaxWidth(), faceLabel, maxHeight)
             } else {
                 Box(Modifier.graphicsLayer { rotationY = 180f }) {
-                    SleeveOverlay(sv)
+                    StarCardBack(
+                        face = face,
+                        modifier = Modifier.fillMaxWidth(),
+                        intro = intro,
+                        about = about,
+                        footer = footer,
+                        maxHeight = maxHeight,
+                    )
                 }
             }
         }
+        // 袋口：压在卡下沿，做出「插进去」的层次
+        if (sleeve != null) {
+            SleeveLip(sleeve, pad, Modifier.align(Alignment.BottomCenter))
+        }
+    }
+}
+
+/** 卡套的外壳：铺满整格，卡从里面垫出去一圈。 */
+@Composable
+private fun SleeveShell(style: SleeveStyle) {
+    val shape = RoundedCornerShape(30.dp)
+    Box(Modifier.fillMaxSize().clip(shape).background(style.fill)) {
+        Canvas(Modifier.fillMaxSize()) {
+            val w = size.width
+            val h = size.height
+            when (style.pattern) {
+                SleeveStyle.Pattern.STARS -> {
+                    var s = 37
+                    repeat(60) {
+                        s = (s * 1103515245 + 12345) and 0x7FFFFFFF
+                        val x = (s % 1000) / 1000f * w
+                        s = (s * 1103515245 + 12345) and 0x7FFFFFFF
+                        val y = (s % 1000) / 1000f * h
+                        drawCircle(Color(0x55FFFFFF), 1.5f, Offset(x, y))
+                    }
+                }
+
+                SleeveStyle.Pattern.CHART -> {
+                    var x = 0f
+                    while (x < w) {
+                        drawLine(Color(0x1F78C8FF), Offset(x, 0f), Offset(x, h), 1f)
+                        x += w / 12f
+                    }
+                    var y = 0f
+                    while (y < h) {
+                        drawLine(Color(0x1F78C8FF), Offset(0f, y), Offset(w, y), 1f)
+                        y += h / 16f
+                    }
+                }
+
+                SleeveStyle.Pattern.WALLS -> {
+                    var x = 0f
+                    while (x < w) {
+                        drawLine(Color(0x12FFFFFF), Offset(x, 0f), Offset(x, h), 2f)
+                        x += w / 9f
+                    }
+                }
+
+                else -> Unit
+            }
+        }
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.linearGradient(
+                        style.gloss,
+                        start = Offset(0f, 0f),
+                        end = Offset(900f, 1200f),
+                    ),
+                ),
+        )
+        if (style.foil) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .border(
+                        3.dp,
+                        Brush.sweepGradient(
+                            listOf(
+                                Color(0xFFFF7AD9), Color(0xFFFFE07A), Color(0xFF7DFFC4),
+                                Color(0xFF7AD0FF), Color(0xFFC08BFF), Color(0xFFFF7AD9),
+                            ),
+                        ),
+                        shape,
+                    ),
+            )
+        }
+        Box(Modifier.fillMaxSize().border(1.5.dp, style.ring.copy(alpha = 0.65f), shape))
+    }
+}
+
+/** 卡套的袋口：卡下沿那一截，半透明加一条高光。 */
+@Composable
+private fun SleeveLip(
+    style: SleeveStyle,
+    pad: androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier,
+) {
+    val shape = RoundedCornerShape(6.dp, 6.dp, 26.dp, 26.dp)
+    Box(
+        modifier
+            .fillMaxWidth()
+            .height(22.dp)
+            .padding(start = pad, end = pad, bottom = pad * 0.5f)
+            .clip(shape)
+            .background(style.fill.copy(alpha = 0.5f))
+            .border(1.dp, style.ring.copy(alpha = 0.35f), shape),
+    ) {
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0x40FFFFFF)))
     }
 }
 
