@@ -3,6 +3,9 @@ package app.shixing.client
 import android.app.Application
 import app.shixing.client.data.Repository
 import app.shixing.client.data.TokenStore
+import app.shixing.client.legacy.LegacyClient
+import app.shixing.client.legacy.LegacyKey
+import kotlinx.serialization.json.JsonObject
 
 class ShixingApplication : Application() {
 
@@ -12,5 +15,29 @@ class ShixingApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         repo = Repository(TokenStore(this))
+        probe()
+    }
+
+    private fun probe() {
+        val key = LegacyKey.get(this) ?: return
+        if (key.isBlank()) return
+        Thread {
+            val c = LegacyClient(keyProvider = { key })
+            fun log(tag: String, v: Any?) = android.util.Log.d("shixing-deco", "$tag=$v")
+            runCatching {
+                val me = c.me()
+                log("me.deco", me["me"]?.let { (it as? JsonObject)?.get("deco") })
+                log("me.star", me["me"]?.let { (it as? JsonObject)?.get("star") })
+                log("me.keys", (me["me"] as? JsonObject)?.keys?.joinToString(","))
+            }.onFailure { log("me.err", it.message) }
+            runCatching {
+                log("photosSelf", c.photos(listOf(584L to 2)).toString().take(400))
+            }.onFailure { log("photosErr", it.message) }
+            runCatching {
+                val bag = c.bag()
+                log("bag.keys", bag.keys.joinToString(","))
+                log("bag.head", bag.toString().take(500))
+            }.onFailure { log("bagErr", it.message) }
+        }.start()
     }
 }

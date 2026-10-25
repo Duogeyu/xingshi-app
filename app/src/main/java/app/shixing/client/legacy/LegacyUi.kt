@@ -88,7 +88,13 @@ class LegacyViewModel(private val appContext: android.content.Context) : ViewMod
         val recs: List<app.shixing.client.data.StarCard> = emptyList(),
         val inbox: List<app.shixing.client.data.StarCard> = emptyList(),
         val cardsLoaded: Boolean = false,
+        /** 我自己的装扮（网页 me.deco 原样保留，改哪项就改哪项再写回）。 */
+        val deco: JsonObject? = null,
+        /** 仓库里拥有的卡面/卡背/卡套/贴纸。 */
+        val owned: List<Owned> = emptyList(),
     )
+
+    data class Owned(val kind: String, val key: String, val qty: Int, val until: Long? = null)
 
     private val client = LegacyClient(keyProvider = { LegacyKey.get(appContext) })
 
@@ -154,7 +160,10 @@ class LegacyViewModel(private val appContext: android.content.Context) : ViewMod
         if (LegacyKey.get(appContext) == null) return
         viewModelScope.launch(Dispatchers.IO) {
             _state.update { it.copy(busy = true, error = null) }
-            val me = runCatching { client.me() }.getOrNull()
+            var meErr: String? = null
+            val me = runCatching { client.me() }
+                .onFailure { meErr = (it as? LegacyError)?.text ?: it.message }
+                .getOrNull()
             val bag = runCatching { client.bag() }.getOrNull()
             val keys = runCatching { client.keys() }.getOrNull()
             runCatching {
@@ -163,9 +172,65 @@ class LegacyViewModel(private val appContext: android.content.Context) : ViewMod
                 _state.update { it.copy(recs = recs, inbox = inbox, cardsLoaded = true) }
                 if (recs.isNotEmpty()) loadPhotos(recs.map { it.n } + inbox.map { it.n })
             }
-            _state.update { it.copy(busy = false, me = me, bag = bag, keys = keys, hasKey = true) }
+            val parsedDeco = (me?.get("me") as? JsonObject)?.get("deco") as? JsonObject
+            android.util.Log.d(
+                "shixing-deco",
+                "meKeys=" + (me?.keys?.joinToString(",") ?: "null") +
+                    " deco=" + (parsedDeco?.toString()?.take(160) ?: "null") +
+                    " items=" + ((bag?.get("items") as? JsonArray)?.size ?: -1),
+            )
+            _state.update {
+                it.copy(
+                    busy = false,
+                    me = me,
+                    bag = bag,
+                    keys = keys,
+                    hasKey = true,
+                    deco = parsedDeco,
+                    owned = ownedFrom(bag),
+                    error = meErr,
+                )
+            }
         }
     }
+
+    private fun ownedFrom(bag: JsonObject?): List<Owned> {
+        val items = bag?.get("items") as? JsonArray ?: return emptyList()
+        return items.mapNotNull { e ->
+            val o = e as? JsonObject ?: return@mapNotNull null
+            val id = o.str("id") ?: return@mapNotNull null
+            val parts = id.split(":")
+            if (parts.size < 2) return@mapNotNull null
+            Owned(
+                kind = parts[0],
+                key = parts[1],
+                qty = o.int("qty") ?: 0,
+                until = o.str("until")?.toLongOrNull(),
+            )
+        }
+    }
+
+    /** 换上某个卡面 / 卡背 / 卡套（face / back / sleeve），其它字段原样带回去。 */
+    fun equip(kind: String, value: String) {
+        val cur = _state.value.deco ?: JsonObject(emptyMap())
+        val next = JsonObject(cur.toMutableMap().apply { put(kind, JsonPrimitive(value)) })
+        viewModelScope.launch(Dispatchers.IO) {
+            _state.update { it.copy(busy = true, error = null) }
+            runCatching { client.deco(next) }
+                .onSuccess { res ->
+                    val fresh = (res["deco"] as? JsonObject) ?: next
+                    _state.update { it.copy(busy = false, deco = fresh, hint = "已换上") }
+                    refresh()
+                }
+                .onFailure { e ->
+                    _state.update { it.copy(busy = false, error = (e as? LegacyError)?.text ?: "换不上，再试一次") }
+                }
+        }
+    }
+
+    fun equipFace(id: String) = equip("face", id)
+    fun equipBack(id: String) = equip("back", id)
+    fun equipSleeve(id: String) = equip("sleeve", id)
 
     fun redeem(code: String) {
         if (code.isBlank()) return

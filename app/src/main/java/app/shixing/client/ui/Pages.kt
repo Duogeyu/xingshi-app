@@ -301,7 +301,9 @@ fun MePage(
     onOpenChat: (Long) -> Unit,
     onOpenLegacy: (String) -> Unit = {},
     onOpenCard: () -> Unit = {},
+    onOpenDeco: () -> Unit = {},
     photoUrl: String? = null,
+    decoOverride: kotlinx.serialization.json.JsonObject? = null,
 ) {
     Column(
         Modifier
@@ -318,7 +320,10 @@ fun MePage(
         s.card?.let { c ->
             Spacer(Modifier.height(12.dp))
             FlippableStarCard(
-                face = c.toFace(),
+                face = c.toFace().let { f ->
+                    // 装扮是自己改的，v1 的卡不带 deco，这里用网页接口那份覆盖
+                    app.shixing.client.data.DecoCatalog.parse(decoOverride)?.let { f.copy(deco = it) } ?: f
+                },
                 photoUrl = photoUrl,
                 modifier = Modifier.fillMaxWidth(),
                 intro = c.intro,
@@ -339,6 +344,7 @@ fun MePage(
                 color = MaterialTheme_color.ink3,
                 modifier = Modifier.padding(top = 4.dp, bottom = 10.dp),
             )
+            LegacyRow("装扮", "卡面、卡背、卡套") { onOpenDeco() }
             LegacyRow("我的仓库", "贴纸包、卡面、星尘") { onOpenLegacy("bag") }
             LegacyRow("兑换码", "兑换贴纸包和装扮") { onOpenLegacy("redeem") }
             LegacyRow("账号与设备", "看登录的设备、踢掉别人") { onOpenLegacy("account") }

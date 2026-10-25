@@ -159,6 +159,14 @@ fun Home(vm: MainViewModel) {
                 legacyRoute == "redeem" -> RedeemScreen(legacyVm) { legacyRoute = null; legacyVm.dismissHint() }
                 legacyRoute == "bag" -> BagScreen(legacyVm) { legacyRoute = null }
                 legacyRoute == "account" -> AccountScreen(legacyVm) { legacyRoute = null }
+                legacyRoute == "deco" -> DecoEditorScreen(
+                    state = legacyState,
+                    onFace = { legacyVm.equipFace(it) },
+                    onBack = { legacyVm.equipBack(it) },
+                    onSleeve = { legacyVm.equipSleeve(it) },
+                    onClose = { legacyRoute = null },
+                    onLogin = { legacyVm.openLogin() },
+                )
                 legacyRoute == "starcard" -> MyCardScreen(
                     card = state.card,
                     photoUrl = legacyState.photoUrl,
@@ -177,7 +185,7 @@ fun Home(vm: MainViewModel) {
                 tab == 1 -> InboxPage(vm, state, legacyVm)
                 tab == 2 -> CrossingsPage(vm, state)
                 tab == 3 -> PostsPage(vm, state)
-                else -> MePage(vm, state, onOpenBoard = { boardOpen = true }, onOpenChat = { n -> chatOpen = n }, onOpenLegacy = { legacyRoute = it }, onOpenCard = { legacyRoute = "starcard" }, photoUrl = legacyState.photoUrl)
+                else -> MePage(vm, state, onOpenBoard = { boardOpen = true }, onOpenChat = { n -> chatOpen = n }, onOpenLegacy = { legacyRoute = it }, onOpenCard = { legacyRoute = "starcard" }, onOpenDeco = { legacyRoute = "deco" }, photoUrl = legacyState.photoUrl, decoOverride = legacyState.deco)
             }
         }
     }
