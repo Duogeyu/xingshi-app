@@ -1,4 +1,4 @@
-﻿package app.shixing.client.data
+package app.shixing.client.data
 
 /**
  * 把「官方限流 + 本地配额 + 令牌存储」收在一层里，UI 只能经由它访问网络，
@@ -133,6 +133,19 @@ class Repository(private val store: TokenStore) {
         Throttle.acquire("link:$to", 3_000)
         return api.link(to, via, post)
     }
+
+    /** 连上之后附一句话（一说一句）。 */
+    suspend fun say(n: Long, text: String): kotlinx.serialization.json.JsonObject {
+        Throttle.acquire("say:$n", 3_000)
+        return api.say(n, text)
+    }
+
+    /** TA 的照片地址；拿不到清晰图就返回 null。 */
+    suspend fun photoUrl(n: Long): String? = runCatching {
+        val o = api.photo(n, 2)
+        val level = (o["level"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull() ?: 0
+        if (level < 2) null else (o["url"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+    }.getOrNull()
 
     suspend fun chats(): ChatsResp {
         Throttle.acquire("chats", 10_000)

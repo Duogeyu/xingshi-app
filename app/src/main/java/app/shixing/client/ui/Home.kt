@@ -190,7 +190,7 @@ fun Home(vm: MainViewModel) {
                 tab == 1 -> InboxPage(vm, state, legacyVm)
                 tab == 2 -> CrossingsPage(vm, state)
                 tab == 3 -> PostsPage(vm, state)
-                else -> MePage(vm, state, onOpenBoard = { boardOpen = true }, onOpenChat = { n -> chatOpen = n }, onOpenLegacy = { legacyRoute = it }, onOpenCard = { legacyRoute = "starcard" }, onOpenDeco = { legacyRoute = "deco" }, photoUrl = legacyState.photoUrl, decoOverride = legacyState.deco)
+                else -> MePage(vm, state, onOpenBoard = { boardOpen = true }, onOpenChat = { n -> chatOpen = n }, onOpenLegacy = { legacyRoute = it }, onOpenCard = { legacyRoute = "starcard" }, onOpenDeco = { legacyRoute = "deco" }, photoUrl = (state.card?.star?.toLong()?.let { state.cardPhotos[it] }) ?: legacyState.photoUrl, decoOverride = legacyState.deco)
             }
         }
     }
@@ -437,9 +437,16 @@ private fun TodayPage(vm: MainViewModel, s: UiState, legacyVm: LegacyViewModel) 
     val scope = rememberCoroutineScope()
     val round = t?.round
     val left = ((round?.max ?: 0) - (round?.used ?: 0)).coerceAtLeast(0)
+    var sayFor by remember { mutableStateOf<app.shixing.client.data.StarCard?>(null) }
+
+    // 当前这张卡的照片：先试 v1 的 photo（要 photos 权限），不行再用网页接口那份
+    LaunchedEffect(pager.currentPage, cards.size) {
+        cards.getOrNull(pager.currentPage)?.let { c ->
+            if (s.cardPhotos[c.n] == null) vm.loadPhoto(c.n)
+        }
+    }
 
     Column(Modifier.fillMaxSize()) {
-        // 顶上：这一轮还能连几颗 + 第几张
         Row(
             Modifier
                 .fillMaxWidth()
@@ -483,67 +490,95 @@ private fun TodayPage(vm: MainViewModel, s: UiState, legacyVm: LegacyViewModel) 
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 18.dp),
         ) { i ->
             val c = cards[i]
+            val alreadyLinked = c.linked || c.mutual || s.linked.contains(c.n)
             Column(
-                Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState()),
+                Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Spacer(Modifier.height(6.dp))
-                val cap = (androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp * 0.56f).dp
                 Box(
                     Modifier
                         .fillMaxWidth()
-                        .height(cap),
+                        .weight(1f),
                     contentAlignment = Alignment.Center,
                 ) {
                     FlippableStarCard(
                         face = c.toFace(),
-                        photoUrl = legacyState.photos[c.n],
+                        photoUrl = s.cardPhotos[c.n] ?: legacyState.photos[c.n],
                         modifier = Modifier.fillMaxHeight(),
                         intro = c.intro,
+                        about = c.about.map { it.q to it.a },
                         footer = null,
                     )
                 }
+                // 卡下面那行小字：网页写「新芽 · 刚来不久的新星」
                 val note = c.lead
                 if (!note.isNullOrBlank()) {
-                    Text(
-                        note,
-                        Modifier.padding(top = 12.dp),
-                        fontSize = 12.sp,
-                        color = MaterialTheme_color.ink3,
-                    )
+                    Row(
+                        Modifier.padding(top = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            note,
+                            fontSize = 12.sp,
+                            color = Color(0xFF5FE0B4),
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
                 }
-                Spacer(Modifier.height(16.dp))
-                // 连上 / 下一颗 / 更多，放在卡的底下
+                Spacer(Modifier.height(14.dp))
+                if (alreadyLinked) {
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Text(
+                            "已连线 · 等 TA 连回来",
+                            fontSize = 12.sp,
+                            color = Color(0xFF5FE0B4),
+                        )
+                    }
+                }
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Row(
-                        Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(Color(0x1A5FE0B4))
-                            .border(1.dp, Color(0x665FE0B4), RoundedCornerShape(16.dp))
-                            .clickable { vm.link(c.n, null, null) { m -> vm.showHint(m) } }
-                            .padding(vertical = 14.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text("＋", fontSize = 15.sp, color = Color(0xFF5FE0B4))
-                        Spacer(Modifier.width(6.dp))
-                        Text("连一条线", fontSize = 14.sp, color = Color(0xFF5FE0B4), fontWeight = FontWeight.Medium)
+                    if (alreadyLinked) {
+                        Row(
+                            Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(MaterialTheme_color.card2)
+                                .clickable { sayFor = c }
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                        ) {
+                            Text("捎一句话", fontSize = 13.sp, color = MaterialTheme_color.ink)
+                        }
+                    } else {
+                        Row(
+                            Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(Color(0x1A5FE0B4))
+                                .border(1.dp, Color(0x665FE0B4), RoundedCornerShape(16.dp))
+                                .clickable { vm.link(c.n, null, null) { m -> vm.showHint(m) } }
+                                .padding(vertical = 14.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text("＋", fontSize = 15.sp, color = Color(0xFF5FE0B4))
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                "连一条线",
+                                fontSize = 14.sp,
+                                color = Color(0xFF5FE0B4),
+                                fontWeight = FontWeight.Medium,
+                            )
+                        }
                     }
                     Box(
                         Modifier
                             .clip(RoundedCornerShape(16.dp))
                             .background(MaterialTheme_color.card2)
                             .clickable {
-                                scope.launch {
-                                    if (i < cards.size - 1) pager.animateScrollToPage(i + 1)
-                                }
+                                scope.launch { if (i < cards.size - 1) pager.animateScrollToPage(i + 1) }
                             }
                             .padding(horizontal = 20.dp, vertical = 14.dp),
                     ) {
@@ -553,15 +588,73 @@ private fun TodayPage(vm: MainViewModel, s: UiState, legacyVm: LegacyViewModel) 
                         Modifier
                             .clip(RoundedCornerShape(16.dp))
                             .background(MaterialTheme_color.card2)
-                            .clickable {
-                                vm.showHint("想要跳过这一颗，先翻卡看看 TA 的介绍；不想再看到可以点卡片里的举报。")
-                            }
+                            .clickable { vm.showHint("更多操作稍后再补；不想再看到这颗可以到网页端点举报。") }
                             .padding(horizontal = 14.dp, vertical = 14.dp),
                     ) {
                         Text("⋯", fontSize = 14.sp, color = MaterialTheme_color.ink2)
                     }
                 }
                 Spacer(Modifier.height(20.dp))
+            }
+        }
+    }
+
+    sayFor?.let { c ->
+        SayDialog(
+            name = c.name ?: "这颗星",
+            onDismiss = { sayFor = null },
+            onSend = { txt ->
+                vm.say(c.n, txt) { m -> vm.showHint(m) }
+                sayFor = null
+            },
+        )
+    }
+}
+
+/** 捎一句话：TA 还没连回来时，附一句话让 TA 在「连向我」里看到。 */
+@Composable
+private fun SayDialog(name: String, onDismiss: () -> Unit, onSend: (String) -> Unit) {
+    var text by remember { mutableStateOf("") }
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier
+                .clip(RoundedCornerShape(20.dp))
+                .background(MaterialTheme_color.card)
+                .padding(18.dp),
+        ) {
+            Text("给 $name 捎一句话", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = MaterialTheme_color.ink)
+            Spacer(Modifier.height(4.dp))
+            Text("TA 在「连向我」里能看到。", fontSize = 12.sp, color = MaterialTheme_color.ink3)
+            Spacer(Modifier.height(12.dp))
+            androidx.compose.material3.OutlinedTextField(
+                value = text,
+                onValueChange = { if (it.length <= 40) text = it },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("比如：我也是刚玩，要不要一起逛", fontSize = 13.sp) },
+                minLines = 2,
+            )
+            Spacer(Modifier.height(6.dp))
+            Text("${text.length} / 40", fontSize = 11.sp, color = MaterialTheme_color.ink3)
+            Spacer(Modifier.height(14.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(MaterialTheme_color.card2)
+                        .clickable { onDismiss() }
+                        .padding(vertical = 12.dp),
+                    contentAlignment = Alignment.Center,
+                ) { Text("算了", fontSize = 13.sp, color = MaterialTheme_color.ink2) }
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color(0x1A5FE0B4))
+                        .clickable { if (text.isNotBlank()) onSend(text) }
+                        .padding(vertical = 12.dp),
+                    contentAlignment = Alignment.Center,
+                ) { Text("捎过去", fontSize = 13.sp, color = Color(0xFF5FE0B4), fontWeight = FontWeight.Medium) }
             }
         }
     }

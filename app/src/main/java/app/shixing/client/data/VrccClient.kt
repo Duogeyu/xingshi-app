@@ -191,7 +191,6 @@ class VrccClient(
     }
 
     // ---- 星卡 / 今天 / 连向我 / 星友圈 / 私聊（scope: card today inbox posts chat）----
-
     suspend fun card(): MyCard =
         call("GET", "me/card", null, true, MyCard.serializer())
 
@@ -219,6 +218,23 @@ class VrccClient(
         }.toString()
         return call("POST", "me/links", body, true, LinkResp.serializer())
     }
+
+    /** 已经连向 TA、TA 还没连回来时附一句话，TA 在「连向我」里看到。 */
+    suspend fun say(n: Long, text: String): JsonObject =
+        call(
+            "POST",
+            "me/stars/$n/say",
+            buildJsonObject { put("text", JsonPrimitive(text)) }.toString(),
+            true,
+            JsonObject.serializer(),
+        )
+
+    /**
+     * TA 的照片。`want` 越大越清晰（0 粗格、1 细格、2 清晰）。
+     * 返回里 level<2 时没有 url，只能显示 grid；16–17 星池没有照片。
+     */
+    suspend fun photo(n: Long, want: Int = 2): JsonObject =
+        call("GET", "me/stars/$n/photo?want=$want", null, true, JsonObject.serializer())
 
     suspend fun chats(): ChatsResp =
         call("GET", "me/chats", null, true, ChatsResp.serializer())
