@@ -53,6 +53,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import app.shixing.client.BuildConfig
 import app.shixing.client.ui.MaterialTheme_color
 import app.shixing.client.ui.ScreenTitle
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -83,6 +84,10 @@ class LegacyViewModel(private val appContext: android.content.Context) : ViewMod
         val photoUrl: String? = null,
         val photoFor: Long? = null,
         val photos: Map<Long, String> = emptyMap(),
+        /** 今天推荐 / 连向我：走网页接口拿到的带装扮的卡。 */
+        val recs: List<app.shixing.client.data.StarCard> = emptyList(),
+        val inbox: List<app.shixing.client.data.StarCard> = emptyList(),
+        val cardsLoaded: Boolean = false,
     )
 
     private val client = LegacyClient(keyProvider = { LegacyKey.get(appContext) })
@@ -102,8 +107,9 @@ class LegacyViewModel(private val appContext: android.content.Context) : ViewMod
         val have = _state.value.photos
         val need = stars.distinct().filter { have[it] == null }
         if (need.isEmpty()) return
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             runCatching { client.photos(need.take(24).map { it to 2 }) }.onSuccess { array ->
+                android.util.Log.d("shixing-deco", "photos=" + array.toString().take(500))
                 val add = mutableMapOf<Long, String>()
                 need.take(24).forEachIndexed { i, n ->
                     val img = (array.getOrNull(i) as? JsonObject)?.str("img")
@@ -119,7 +125,7 @@ class LegacyViewModel(private val appContext: android.content.Context) : ViewMod
     fun loadPhoto(star: Long) {
         if (_state.value.photoFor == star && _state.value.photoUrl != null) return
         if (LegacyKey.get(appContext) == null) return
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             runCatching { client.photos(listOf(star to 2)) }.onSuccess { array ->
                 val img = (array.firstOrNull() as? JsonObject)?.str("img")
                 if (!img.isNullOrBlank()) {
@@ -146,18 +152,24 @@ class LegacyViewModel(private val appContext: android.content.Context) : ViewMod
 
     fun refresh() {
         if (LegacyKey.get(appContext) == null) return
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             _state.update { it.copy(busy = true, error = null) }
             val me = runCatching { client.me() }.getOrNull()
             val bag = runCatching { client.bag() }.getOrNull()
             val keys = runCatching { client.keys() }.getOrNull()
+            runCatching {
+                val recs = client.recs()
+                val inbox = client.inbox()
+                _state.update { it.copy(recs = recs, inbox = inbox, cardsLoaded = true) }
+                if (recs.isNotEmpty()) loadPhotos(recs.map { it.n } + inbox.map { it.n })
+            }
             _state.update { it.copy(busy = false, me = me, bag = bag, keys = keys, hasKey = true) }
         }
     }
 
     fun redeem(code: String) {
         if (code.isBlank()) return
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             _state.update { it.copy(busy = true, error = null, redeems = emptyList()) }
             runCatching { client.redeem(code) }
                 .onSuccess { result ->
@@ -180,7 +192,7 @@ class LegacyViewModel(private val appContext: android.content.Context) : ViewMod
     }
 
     fun dropKey(id: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             runCatching { client.dropKey(id) }
                 .onSuccess { refresh() }
                 .onFailure { e ->
@@ -190,7 +202,7 @@ class LegacyViewModel(private val appContext: android.content.Context) : ViewMod
     }
 
     fun leave() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             runCatching { client.leave() }
                 .onSuccess { forget() }
                 .onFailure { e ->

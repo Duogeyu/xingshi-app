@@ -58,6 +58,8 @@ data class CardFace(
     val deco: CardDeco? = null,
     /** 对方有照片（能不能显示还得看有没有取到链接）。 */
     val hasPhoto: Boolean = false,
+    /** 网页接口给的「你们的共同点」。 */
+    val common: List<String> = emptyList(),
 )
 
 fun MyCard.toFace(): CardFace = CardFace(
@@ -70,6 +72,7 @@ fun MyCard.toFace(): CardFace = CardFace(
     no = star,
     deco = DecoCatalog.parse(deco),
     hasPhoto = photo,
+    common = emptyList(),
 )
 
 fun StarCard.toFace(): CardFace = CardFace(
@@ -82,6 +85,7 @@ fun StarCard.toFace(): CardFace = CardFace(
     no = star ?: n.toInt(),
     deco = DecoCatalog.parse(deco),
     hasPhoto = photo,
+    common = common,
 )
 
 private val GOLD = Color(0xFFE8C983)
@@ -380,6 +384,23 @@ fun StarCardBack(
         intro?.takeIf { it.isNotBlank() }?.let {
             Spacer(Modifier.height(10.dp))
             Text(it, fontSize = 12.sp, color = MaterialTheme_color.ink2, lineHeight = 18.sp)
+        }
+
+        if (face.common.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "你们的共同点",
+                fontSize = 11.sp,
+                color = st.frame,
+                fontWeight = FontWeight.SemiBold,
+            )
+            face.common.take(3).forEach { line ->
+                Row(Modifier.padding(top = 5.dp)) {
+                    Text("·", fontSize = 12.sp, color = st.frame)
+                    Spacer(Modifier.width(5.dp))
+                    Text(line, fontSize = 11.sp, color = MaterialTheme_color.ink2, lineHeight = 16.sp)
+                }
+            }
         }
 
         about.take(3).forEach { (q, a) ->

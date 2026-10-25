@@ -418,6 +418,8 @@ private fun TodayPage(vm: MainViewModel, s: UiState, legacyVm: LegacyViewModel) 
         legacyVm.loadPhotos(s.today?.cards?.map { it.n } ?: emptyList())
     }
     val t = s.today
+    // 网页接口的卡带装扮与共同点，优先用；拿不到再退回 v1 的卡。
+    val cards = legacyState.recs.ifEmpty { t?.cards.orEmpty() }
     Column(
         Modifier
             .fillMaxSize()
@@ -452,10 +454,10 @@ private fun TodayPage(vm: MainViewModel, s: UiState, legacyVm: LegacyViewModel) 
             }
         }
         Spacer(Modifier.height(14.dp))
-        if (t == null || t.cards.isEmpty()) {
+        if (cards.isEmpty()) {
             Empty("这一轮还没有星路过。")
         } else {
-            t.cards.forEach { c ->
+            cards.forEach { c ->
                 StarCardItem(c, photoUrl = legacyState.photos[c.n], onLink = { vm.link(c.n, null, null) { m -> vm.showHint(m) } })
                 Spacer(Modifier.height(10.dp))
             }
@@ -503,12 +505,14 @@ private fun InboxPage(vm: MainViewModel, s: UiState, legacyVm: LegacyViewModel) 
         ScreenTitle("连向我", sub.ifBlank { "连向我的星" })
         PageError(vm, s, "inbox")
         Spacer(Modifier.height(10.dp))
-        if (i == null || i.cards.isEmpty()) {
+        val inboxCards = legacyState.inbox.ifEmpty { i?.cards.orEmpty() }
+        if (inboxCards.isEmpty()) {
             Empty("还没有星连向你。")
         } else {
-            i.cards.forEach { c ->
+            inboxCards.forEach { c ->
                 StarCardItem(
                     c,
+                    photoUrl = legacyState.photos[c.n],
                     onLink = {
                         if (c.mutual) vm.showHint("你们已经互相连上了")
                         else vm.link(c.n, null, null) { m -> vm.showHint(m) }

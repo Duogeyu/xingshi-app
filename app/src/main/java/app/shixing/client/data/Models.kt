@@ -201,6 +201,12 @@ data class StarCard(
     val vrcUser: String? = null,
     val friends: Int? = null,
     val at: Long? = null,
+    /** 网页内部接口才有：推荐位、共同点、带队语。 */
+    val pos: String? = null,
+    val lead: String? = null,
+    val common: List<String> = emptyList(),
+    /** 已经打过的分（null 表示没打过）。 */
+    val rating: JsonElement? = null,
     /** 网页给这两页塞的额外字段（比如「新」标记），这里不解析。 */
     val fresh: Boolean = false,
 )

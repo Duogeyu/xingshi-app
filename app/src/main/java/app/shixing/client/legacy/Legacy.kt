@@ -1,8 +1,10 @@
-﻿package app.shixing.client.legacy
+package app.shixing.client.legacy
 
 import android.content.Context
 import android.util.Log
 import app.shixing.client.BuildConfig
+import app.shixing.client.data.StarCard
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -26,6 +28,8 @@ class LegacyClient(
     private val base: String = BuildConfig.LEGACY_BASE,
 ) {
     private val json = Json { ignoreUnknownKeys = true; isLenient = true; explicitNulls = false }
+
+    private val cardJson = Json { ignoreUnknownKeys = true; isLenient = true; explicitNulls = false; coerceInputValues = true }
 
     private val http = OkHttpClient.Builder()
         .connectTimeout(12, TimeUnit.SECONDS)
@@ -110,6 +114,26 @@ class LegacyClient(
     fun leave(): JsonObject = call("leave")
 
     fun privacy(value: JsonObject): JsonObject = call("privacy", mapOf("privacy" to value))
+
+    /**
+     * 今天推荐 / 连向我的星卡。
+     *
+     * 官方 v1 的 `me/today`、`me/inbox` 不带装扮（`deco`）与共同点（`common`），
+     * 而网页这两个动作会带，所以卡面数据先走这里；取不到时上层再退回 v1。
+     */
+    fun recs(): List<StarCard> = decodeCards(call("recs"))
+
+    fun inbox(): List<StarCard> = decodeCards(call("inbox"))
+
+    private fun decodeCards(obj: JsonObject): List<StarCard> {
+        val array = (obj["cards"] ?: obj["list"]) as? JsonArray ?: return emptyList()
+        return runCatching {
+            cardJson.decodeFromJsonElement(ListSerializer(StarCard.serializer()), array)
+        }.getOrElse {
+            Log.w("Legacy", "decode cards failed", it)
+            emptyList()
+        }
+    }
 
     fun deco(deco: JsonObject): JsonObject = call("deco", mapOf("deco" to deco))
 
