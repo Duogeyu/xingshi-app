@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -29,9 +30,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -202,6 +205,9 @@ fun StarCardFront(
 
         // 各档位自带的贴面光效（网页是 .mt-face-fx 那层 screen 混合）
         StyleFx(st.fx)
+
+        // 贴纸：位置来自 deco.spots，图形由离屏 WebView 画好再贴上来
+        StickerLayer(face.deco?.spots.orEmpty())
 
 
         Box(
@@ -545,83 +551,10 @@ fun FlippableStarCard(
                 }
             }
         }
-        // 卡套：一整层盖在卡上，只让边缘和袋口看得出来
-        if (sleeve != null) SleeveShell(sleeve, Modifier.fillMaxSize())
     }
 }
 
 /** 卡套的外壳：铺满整格，卡从里面垫出去一圈。 */
-@Composable
-private fun SleeveShell(style: SleeveStyle, modifier: Modifier = Modifier) {
-    // 卡套只做两件事：一圈内边、底部一个袋口。别整片盖颜色，否则卡会看起来像蒙了层膜。
-    Box(modifier) {
-        Box(
-            Modifier
-                .fillMaxSize()
-                .padding(5.dp)
-                .border(2.dp, style.ring.copy(alpha = 0.5f), RoundedCornerShape(21.dp)),
-        )
-        if (style.foil) {
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .padding(3.dp)
-                    .border(
-                        3.dp,
-                        Brush.sweepGradient(
-                            listOf(
-                                Color(0xFFFF7AD9), Color(0xFFFFE07A), Color(0xFF7DFFC4),
-                                Color(0xFF7AD0FF), Color(0xFFC08BFF), Color(0xFFFF7AD9),
-                            ),
-                        ),
-                        RoundedCornerShape(23.dp),
-                    ),
-            )
-        }
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(22.dp)
-                .align(Alignment.BottomCenter)
-                .clip(RoundedCornerShape(bottomStart = 26.dp, bottomEnd = 26.dp))
-                .background(style.fill.copy(alpha = 0.22f)),
-        ) {
-            Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0x44FFFFFF)))
-        }
-        Box(
-            Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.linearGradient(
-                        listOf(Color(0x0AFFFFFF), Color(0x00FFFFFF), Color(0x05FFFFFF)),
-                        start = Offset(0f, 0f),
-                        end = Offset(1200f, 1600f),
-                    ),
-                ),
-        )
-    }
-}
-
-/** 卡套的袋口：卡下沿那一截，半透明加一条高光。 */
-@Composable
-private fun SleeveLip(
-    style: SleeveStyle,
-    pad: androidx.compose.ui.unit.Dp,
-    modifier: Modifier = Modifier,
-) {
-    val shape = RoundedCornerShape(6.dp, 6.dp, 26.dp, 26.dp)
-    Box(
-        modifier
-            .fillMaxWidth()
-            .height(22.dp)
-            .padding(start = pad, end = pad, bottom = pad * 0.5f)
-            .clip(shape)
-            .background(style.fill.copy(alpha = 0.5f))
-            .border(1.dp, style.ring.copy(alpha = 0.35f), shape),
-    ) {
-        Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0x40FFFFFF)))
-    }
-}
 
 /** 全屏的「我的星卡」页（现在「我的」页里直接用卡片本身）。 */
 @Composable
@@ -1022,6 +955,42 @@ private fun MixBlock(m: Map<String, Int>, overlap: Int?, modifier: Modifier = Mo
                 val pct = Math.round((m[k] ?: 0) * 100f / total)
                 Text("● $label $pct%", fontSize = 10.5.sp, color = Color(0x99FFFFFF))
                 Spacer(Modifier.width(10.dp))
+            }
+        }
+    }
+}
+
+
+/** 贴纸：位置/大小来自 deco.spots，图形由离屏 WebView 画好再贴上来。 */
+@Composable
+private fun StickerLayer(spots: List<app.shixing.client.data.DecoSpot>) {
+    if (spots.isEmpty()) return
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+        val w = maxWidth
+        val h = maxHeight
+        spots.forEach { s ->
+            val id = s.id ?: return@forEach
+            val box = w * (s.size / 100f)
+            val key = "$id/${s.fin}/${s.wear}/${s.seed}"
+            val url = "https://vrcc.cc/api/v1/stickers/" + id +
+                "?fin=" + (s.fin ?: "paper") + "&wear=" + s.wear + "&seed=" + s.seed
+            val pic by androidx.compose.runtime.produceState<android.graphics.Bitmap?>(
+                initialValue = null,
+                key1 = key,
+            ) { value = StickerRaster.bitmap(key, url) }
+            androidx.compose.foundation.layout.Box(
+                Modifier
+                    .offset(x = w * (s.x / 100f) - box / 2, y = h * (s.y / 100f) - box / 2)
+                    .size(box)
+                    .rotate(s.rot),
+            ) {
+                pic?.let {
+                    androidx.compose.foundation.Image(
+                        bitmap = it.asImageBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
             }
         }
     }

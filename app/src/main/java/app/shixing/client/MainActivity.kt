@@ -59,5 +59,10 @@ class MainActivity : ComponentActivity() {
                 Home(vm)
             }
         }
+
+        // 贴纸的离屏渲染机：一只 1px 的 WebView 挂在窗口上才画得出东西
+        (findViewById<android.view.ViewGroup>(android.R.id.content))?.let {
+            app.shixing.client.ui.StickerRaster.host(this, it)
+        }
     }
 }

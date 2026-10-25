@@ -194,7 +194,7 @@ fun DecoEditorScreen(
 
         // 分页
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("卡面", "贴纸", "卡套", "卡背").forEachIndexed { i, name ->
+            listOf("卡面", "贴纸", "卡背").forEachIndexed { i, name ->
                 val on = tab == i
                 Text(
                     name,
@@ -231,7 +231,6 @@ fun DecoEditorScreen(
             when (tab) {
                 0 -> FaceGrid(face, ownedF, onPick = { face = it })
                 1 -> Empty("贴纸摆放还在做：先把卡面和卡背做成网页那样。")
-                2 -> SleeveList(ownedV, sleeve, onPick = { sleeve = it })
                 else -> BackGrid(back, ownedB, onPick = { back = it })
             }
             Spacer(Modifier.height(20.dp))
