@@ -186,7 +186,7 @@ fun Home(vm: MainViewModel) {
                 tab == 1 -> InboxPage(vm, state, legacyVm)
                 tab == 2 -> CrossingsPage(vm, state)
                 tab == 3 -> PostsPage(vm, state)
-                else -> MePage(vm, state, onOpenBoard = { boardOpen = true }, onOpenChat = { n -> chatOpen = n }, onOpenLegacy = { legacyRoute = it }, onOpenCard = { legacyRoute = "starcard" }, onOpenDeco = { legacyRoute = "deco" }, photoUrl = legacyState.photoUrl, decoOverride = legacyState.deco, deviceKey = app.shixing.client.legacy.LegacyKey.get(context))
+                else -> MePage(vm, state, onOpenBoard = { boardOpen = true }, onOpenChat = { n -> chatOpen = n }, onOpenLegacy = { legacyRoute = it }, onOpenCard = { legacyRoute = "starcard" }, onOpenDeco = { legacyRoute = "deco" }, photoUrl = legacyState.photoUrl, decoOverride = legacyState.deco)
             }
         }
     }
@@ -428,8 +428,7 @@ private fun TodayPage(vm: MainViewModel, s: UiState, legacyVm: LegacyViewModel) 
     }
     val t = s.today
     // 网页接口的卡带装扮与共同点，优先用；拿不到再退回 v1 的卡。
-    // v1 的卡本来就带 deco；只有 v1 失败时才退回网页接口那份
-    val cards = t?.cards?.ifEmpty { legacyState.recs }.orEmpty()
+    val cards = legacyState.recs.ifEmpty { t?.cards.orEmpty() }
     Column(
         Modifier
             .fillMaxSize()
@@ -515,7 +514,7 @@ private fun InboxPage(vm: MainViewModel, s: UiState, legacyVm: LegacyViewModel) 
         ScreenTitle("连向我", sub.ifBlank { "连向我的星" })
         PageError(vm, s, "inbox")
         Spacer(Modifier.height(10.dp))
-        val inboxCards = i?.cards?.ifEmpty { legacyState.inbox }.orEmpty()
+        val inboxCards = legacyState.inbox.ifEmpty { i?.cards.orEmpty() }
         if (inboxCards.isEmpty()) {
             Empty("还没有星连向你。")
         } else {
@@ -539,7 +538,6 @@ private fun InboxPage(vm: MainViewModel, s: UiState, legacyVm: LegacyViewModel) 
 
 @Composable
 fun StarCardItem(c: StarCard, photoUrl: String? = null, onLink: (() -> Unit)? = null) {
-    android.util.Log.w("shixing-item", "item n=" + c.n + " deco=" + (c.deco?.let { d -> d["face"]?.toString() } ?: "null"))
     FlippableStarCard(
         face = c.toFace(),
         photoUrl = null,
