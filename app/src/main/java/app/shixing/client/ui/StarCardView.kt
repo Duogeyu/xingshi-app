@@ -108,6 +108,7 @@ private val GOLD = Color(0xFFE8C983)
 fun StarCardFront(
     face: CardFace,
     photoUrl: String?,
+    photoGrid: android.graphics.Bitmap? = null,
     modifier: Modifier = Modifier,
     faceLabel: String? = null,
     maxHeight: androidx.compose.ui.unit.Dp? = null,
@@ -131,6 +132,13 @@ fun StarCardFront(
         if (photoUrl != null) {
             AsyncImage(
                 model = photoUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else if (photoGrid != null) {
+            androidx.compose.foundation.Image(
+                bitmap = photoGrid.asImageBitmap(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
@@ -215,9 +223,9 @@ fun StarCardFront(
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        0.34f to Color.Transparent,
-                        0.62f to (if (st.light) Color(0x33FFFFFF) else Color(0x9905060A)),
-                        1f to (if (st.light) Color(0xE6FFFFFF) else Color(0xF205060A)),
+                        0.28f to Color.Transparent,
+                        0.58f to (if (st.light) Color(0x44FFFFFF) else Color(0xCC05060A)),
+                        1f to (if (st.light) Color(0xE9FFFFFF) else Color(0xF805060A)),
                     ),
                 ),
         )
@@ -508,6 +516,7 @@ fun StarCardBack(
 fun FlippableStarCard(
     face: CardFace,
     photoUrl: String?,
+    photoGrid: android.graphics.Bitmap? = null,
     modifier: Modifier = Modifier,
     faceLabel: String? = null,
     intro: String? = null,
@@ -537,7 +546,7 @@ fun FlippableStarCard(
             contentAlignment = Alignment.TopCenter,
         ) {
             if (rotation <= 90f) {
-                StarCardFront(face, photoUrl, Modifier.fillMaxWidth(), faceLabel, maxHeight)
+                StarCardFront(face, photoUrl, photoGrid, Modifier.fillMaxWidth(), faceLabel, maxHeight)
             } else {
                 Box(Modifier.graphicsLayer { rotationY = 180f }) {
                     StarCardBack(

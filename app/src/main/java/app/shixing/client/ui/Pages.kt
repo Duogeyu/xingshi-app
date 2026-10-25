@@ -303,6 +303,7 @@ fun MePage(
     onOpenCard: () -> Unit = {},
     onOpenDeco: () -> Unit = {},
     photoUrl: String? = null,
+    photoGrid: android.graphics.Bitmap? = null,
     decoOverride: kotlinx.serialization.json.JsonObject? = null,
 ) {
     Column(
@@ -325,6 +326,7 @@ fun MePage(
                     app.shixing.client.data.DecoCatalog.parse(decoOverride)?.let { f.copy(deco = it) } ?: f
                 },
                 photoUrl = photoUrl,
+                photoGrid = photoGrid,
                 modifier = Modifier.fillMaxWidth(),
                 intro = c.intro,
             )

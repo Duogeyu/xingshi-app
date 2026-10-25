@@ -190,7 +190,7 @@ fun Home(vm: MainViewModel) {
                 tab == 1 -> InboxPage(vm, state, legacyVm)
                 tab == 2 -> CrossingsPage(vm, state)
                 tab == 3 -> PostsPage(vm, state)
-                else -> MePage(vm, state, onOpenBoard = { boardOpen = true }, onOpenChat = { n -> chatOpen = n }, onOpenLegacy = { legacyRoute = it }, onOpenCard = { legacyRoute = "starcard" }, onOpenDeco = { legacyRoute = "deco" }, photoUrl = (state.card?.star?.toLong()?.let { state.cardPhotos[it] }) ?: legacyState.photoUrl, decoOverride = legacyState.deco)
+                else -> MePage(vm, state, onOpenBoard = { boardOpen = true }, onOpenChat = { n -> chatOpen = n }, onOpenLegacy = { legacyRoute = it }, onOpenCard = { legacyRoute = "starcard" }, onOpenDeco = { legacyRoute = "deco" }, photoUrl = (state.card?.star?.toLong()?.let { state.cardPhotos[it]?.url }) ?: legacyState.photoUrl, photoGrid = state.card?.star?.toLong()?.let { state.cardPhotos[it]?.grid }, decoOverride = legacyState.deco)
             }
         }
     }
@@ -504,7 +504,8 @@ private fun TodayPage(vm: MainViewModel, s: UiState, legacyVm: LegacyViewModel) 
                 ) {
                     FlippableStarCard(
                         face = c.toFace().copy(overlap = overlapOf(s.card?.scores?.asMap(), c.scores)),
-                        photoUrl = s.cardPhotos[c.n] ?: legacyState.photos[c.n],
+                        photoUrl = s.cardPhotos[c.n]?.url ?: legacyState.photos[c.n],
+                photoGrid = s.cardPhotos[c.n]?.grid,
                         modifier = Modifier.fillMaxHeight(),
                         intro = c.intro,
                         about = c.about.map { it.q to it.a },

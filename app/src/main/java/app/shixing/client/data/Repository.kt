@@ -140,11 +140,9 @@ class Repository(private val store: TokenStore) {
         return api.say(n, text)
     }
 
-    /** TA 的照片地址；拿不到清晰图就返回 null。 */
-    suspend fun photoUrl(n: Long): String? = runCatching {
-        val o = api.photo(n, 2)
-        val level = (o["level"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull() ?: 0
-        if (level < 2) null else (o["url"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+    /** TA 的照片：清晰图给 url，没连上只给 grid（N×N 像素格）。 */
+    suspend fun photo(n: Long): CardPhoto? = runCatching {
+        PhotoParser.parse(api.photo(n, 2))
     }.getOrNull()
 
     suspend fun chats(): ChatsResp {
@@ -193,6 +191,7 @@ class Repository(private val store: TokenStore) {
          *   未审核的自助登记应用里，敏感权限只有登记人本人能同意。
          */
         const val DEFAULT_SCOPE =
-            "profile card maps maps.rate notifications crossings mutuals today inbox link chat chat.send posts"
+            "profile card maps maps.rate notifications crossings mutuals today inbox link chat chat.send posts " +
+                "photos vrchat safety maps.write"
     }
 }

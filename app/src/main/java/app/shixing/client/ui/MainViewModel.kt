@@ -56,7 +56,7 @@ data class UiState(
     /** 已经点过「连上」的星（本地先记住，等服务端回话再刷新）。 */
     val linked: Set<Long> = emptySet(),
     /** TA 的照片地址（只在卡面显示，不进磁盘）。 */
-    val cardPhotos: Map<Long, String> = emptyMap(),
+    val cardPhotos: Map<Long, app.shixing.client.data.CardPhoto> = emptyMap(),
 )
 
 
@@ -261,8 +261,8 @@ class MainViewModel(private val repo: Repository) : ViewModel() {
 
     /** 取 TA 的照片（只在卡上显示，不落盘）。 */
     fun loadPhoto(n: Long) = viewModelScope.launch {
-        val url = repo.photoUrl(n) ?: return@launch
-        _state.update { it.copy(cardPhotos = it.cardPhotos + (n to url)) }
+        val p = repo.photo(n) ?: return@launch
+        _state.update { it.copy(cardPhotos = it.cardPhotos + (n to p)) }
     }
 
     /** 打开一段私聊；返回 null 表示失败了（错误已经进 pageErrors）。 */
