@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -101,6 +102,7 @@ fun StarCardFront(
     photoUrl: String?,
     modifier: Modifier = Modifier,
     faceLabel: String? = null,
+    maxHeight: androidx.compose.ui.unit.Dp? = null,
 ) {
     val shape = RoundedCornerShape(26.dp)
     val st = DecoCatalog.style(face.deco?.face)
@@ -112,7 +114,7 @@ fun StarCardFront(
     )
 
     Box(
-        modifier
+        (if (maxHeight != null) modifier.heightIn(max = maxHeight) else modifier)
             .aspectRatio(0.70f)
             .clip(shape)
             .background(Color(0xFF0A0C13))
@@ -358,6 +360,7 @@ fun StarCardBack(
     intro: String? = null,
     about: List<Pair<String?, String?>> = emptyList(),
     footer: (@Composable () -> Unit)? = null,
+    maxHeight: androidx.compose.ui.unit.Dp? = null,
 ) {
     val shape = RoundedCornerShape(26.dp)
     val st = DecoCatalog.style(face.deco?.face)
@@ -365,7 +368,7 @@ fun StarCardBack(
     val ring = Brush.linearGradient(bk.frameColors, start = Offset.Zero, end = Offset(700f, 1050f))
 
     Box(
-        modifier
+        (if (maxHeight != null) modifier.heightIn(max = maxHeight) else modifier)
             .aspectRatio(0.70f)
             .clip(shape)
             .background(bk.bg)
@@ -495,6 +498,7 @@ fun FlippableStarCard(
     intro: String? = null,
     about: List<Pair<String?, String?>> = emptyList(),
     footer: (@Composable () -> Unit)? = null,
+    maxHeight: androidx.compose.ui.unit.Dp? = null,
 ) {
     var flipped by remember(face.star) { mutableStateOf(false) }
     val rotation by animateFloatAsState(
@@ -512,7 +516,7 @@ fun FlippableStarCard(
             .clickable { flipped = !flipped },
     ) {
         if (rotation <= 90f) {
-            StarCardFront(face, photoUrl, Modifier.fillMaxWidth(), faceLabel)
+            StarCardFront(face, photoUrl, Modifier.fillMaxWidth(), faceLabel, maxHeight)
         } else {
             Box(Modifier.graphicsLayer { rotationY = 180f }) {
                 StarCardBack(
@@ -521,6 +525,7 @@ fun FlippableStarCard(
                     intro = intro,
                     about = about,
                     footer = footer,
+                    maxHeight = maxHeight,
                 )
             }
         }
