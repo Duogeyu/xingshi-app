@@ -541,6 +541,77 @@ fun MePage(
             )
             Spacer(Modifier.height(6.dp))
             Text("源代码：${BuildConfig.SOURCE_URL}", fontSize = 12.sp, color = MaterialTheme_color.accent)
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                val ctx = androidx.compose.ui.platform.LocalContext.current
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(99.dp))
+                        .background(Color(0x1F4DB4FF))
+                        .clickable { vm.checkUpdate(manual = true) }
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                ) {
+                    Text("检查更新", fontSize = 12.sp, color = MaterialTheme_color.accent)
+                }
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    s.update?.let { "发现 " + it.tag } ?: ("当前 " + BuildConfig.VERSION_NAME),
+                    fontSize = 12.sp,
+                    color = if (s.update != null) Color(0xFF2FD08A) else MaterialTheme_color.ink2,
+                )
+            }
+            s.update?.let { up ->
+                Spacer(Modifier.height(10.dp))
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0x142FD08A))
+                        .padding(12.dp),
+                ) {
+                    Text(
+                        "新版本 " + up.tag + " 可用",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF2FD08A),
+                    )
+                    if (up.notes.isNotBlank()) {
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            up.notes.take(240),
+                            fontSize = 11.5.sp,
+                            color = MaterialTheme_color.ink2,
+                            maxLines = 6,
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val ctx2 = androidx.compose.ui.platform.LocalContext.current
+                        Box(
+                            Modifier
+                                .clip(RoundedCornerShape(99.dp))
+                                .background(Color(0xFF2FD08A))
+                                .clickable {
+                                    runCatching {
+                                        ctx2.startActivity(
+                                            android.content.Intent(
+                                                android.content.Intent.ACTION_VIEW,
+                                                android.net.Uri.parse(up.assetUrl ?: up.pageUrl),
+                                            ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                                        )
+                                    }
+                                }
+                                .padding(horizontal = 14.dp, vertical = 7.dp),
+                        ) { Text("去下载", fontSize = 12.sp, color = Color(0xFF04121F)) }
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            "也可以在浏览器打开 " + BuildConfig.SOURCE_URL + "/releases",
+                            fontSize = 10.5.sp,
+                            color = MaterialTheme_color.ink3,
+                        )
+                    }
+                }
+            }
         }
 
         Spacer(Modifier.height(14.dp))

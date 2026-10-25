@@ -40,6 +40,7 @@ data class UiState(
     val crossingsWhy: String? = null,
     val mutuals: List<MutualStar> = emptyList(),
     val dailyUsed: Int = 0,
+    val update: app.shixing.client.data.UpdateInfo? = null,
     /** 正在等玩家在网页上同意时，这张卡片显示 user_code。 */
     val device: DeviceCode? = null,
     /** 设备码还剩下的秒数（用于「还剩 8:32」）。 */
@@ -66,6 +67,7 @@ class MainViewModel(private val repo: Repository) : ViewModel() {
     val state: StateFlow<UiState> = _state.asStateFlow()
 
     init {
+        checkUpdate(manual = false)
         viewModelScope.launch { syncStickerToken() }
         viewModelScope.launch {
             val token = repo.storeToken()
@@ -413,6 +415,20 @@ class MainViewModel(private val repo: Repository) : ViewModel() {
         }
 
     fun clearHint() = _state.update { it.copy(hint = null) }
+
+    /** 手动/自动检查更新。manual=false 时如果今天已经查过就跳过。 */
+    fun checkUpdate(manual: Boolean = false) {
+        viewModelScope.launch {
+            val ctx: android.content.Context = app.shixing.client.ShixingApplication.ctx
+            if (!manual && app.shixing.client.data.UpdateChecker.checkedToday(ctx)) return@launch
+            val info = runCatching { app.shixing.client.data.UpdateChecker.check() }.getOrNull()
+            app.shixing.client.data.UpdateChecker.markChecked(ctx)
+            _state.update { it.copy(update = info) }
+            if (manual) {
+                showHint(if (info == null) "已经是最新版本" else "有新版本 " + info.tag)
+            }
+        }
+    }
 
     fun showHint(text: String) = _state.update { it.copy(hint = text) }
 

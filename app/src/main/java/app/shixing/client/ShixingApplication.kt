@@ -1,6 +1,7 @@
 package app.shixing.client
 
 import android.app.Application
+import android.content.Context
 import app.shixing.client.data.Repository
 import app.shixing.client.data.TokenStore
 import app.shixing.client.legacy.LegacyClient
@@ -9,10 +10,19 @@ import kotlinx.serialization.json.JsonObject
 
 class ShixingApplication : Application() {
 
+    companion object {
+        /** 全局 Application 上下文：更新检查这种不需要 Activity 的地方用它。 */
+        lateinit var ctx: Context
+            private set
+    }
+
+
     lateinit var repo: Repository
         private set
 
     override fun onCreate() {
+        super.onCreate()
+        ctx = applicationContext
         super.onCreate()
         repo = Repository(TokenStore(this))
         probe()
