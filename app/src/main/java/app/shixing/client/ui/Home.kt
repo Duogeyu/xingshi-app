@@ -695,9 +695,13 @@ private fun InboxPage(vm: MainViewModel, s: UiState, legacyVm: LegacyViewModel) 
             Empty("还没有星连向你。")
         } else {
             inboxCards.forEach { c ->
+                LaunchedEffect(c.n) {
+                    if (s.cardPhotos[c.n] == null) vm.loadPhoto(c.n)
+                }
                 StarCardItem(
                     c,
-                    photoUrl = legacyState.photos[c.n],
+                    photoUrl = s.cardPhotos[c.n]?.url ?: legacyState.photos[c.n],
+                    photoGrid = s.cardPhotos[c.n]?.grid,
                     onLink = {
                         if (c.mutual) vm.showHint("你们已经互相连上了")
                         else vm.link(c.n, null, null) { m -> vm.showHint(m) }
@@ -716,12 +720,14 @@ private fun InboxPage(vm: MainViewModel, s: UiState, legacyVm: LegacyViewModel) 
 fun StarCardItem(
     c: StarCard,
     photoUrl: String? = null,
+    photoGrid: android.graphics.Bitmap? = null,
     onLink: (() -> Unit)? = null,
     myScores: Map<String, Int>? = null,
 ) {
     FlippableStarCard(
         face = c.toFace().copy(overlap = overlapOf(myScores, c.scores)),
-        photoUrl = null,
+        photoUrl = photoUrl,
+        photoGrid = photoGrid,
         modifier = Modifier.fillMaxWidth(),
         intro = c.intro,
         about = c.about.map { it.q to it.a },
