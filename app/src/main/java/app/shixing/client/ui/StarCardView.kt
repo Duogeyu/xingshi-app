@@ -198,6 +198,9 @@ fun StarCardFront(
         // 各档位自带的贴面光效（网页是 .mt-face-fx 那层 screen 混合）
         StyleFx(st.fx)
 
+        // 贴纸：位置来自 deco.spots，图形由官方 /api/v1/stickers 现画
+        StickerLayer(face.deco?.spots.orEmpty(), Modifier.fillMaxSize())
+
         Box(
             Modifier
                 .fillMaxSize()
