@@ -19,6 +19,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import app.shixing.client.data.Groups
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.asImageBitmap
 
 /**
  * 星的自绘头像：没有照片（接口不给照片），用群组色渐变 + 名字首字，
@@ -71,6 +74,35 @@ fun Cover(path: String?, modifier: Modifier = Modifier, radius: Dp = 12.dp) {
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.matchParentSize(),
+            )
+        }
+    }
+}
+
+/** 有照片就裁成圆形用照片，没有就用名字首字。 */
+@androidx.compose.runtime.Composable
+fun PhotoAvatar(photoUrl: String?, grid: android.graphics.Bitmap?, name: String?, size: Dp) {
+    Box(
+        Modifier.size(size).clip(CircleShape).background(Color(0xFF1A1F2E)),
+        contentAlignment = Alignment.Center,
+    ) {
+        when {
+            photoUrl != null -> AsyncImage(
+                model = photoUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+            grid != null -> Image(
+                bitmap = grid.asImageBitmap(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+            else -> Text(
+                (name ?: "星").take(1),
+                color = Color(0xFF9AA3B5),
+                fontSize = (size.value * 0.4f).sp,
             )
         }
     }

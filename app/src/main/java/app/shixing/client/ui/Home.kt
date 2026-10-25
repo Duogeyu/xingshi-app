@@ -185,9 +185,14 @@ fun Home(vm: MainViewModel) {
                     onRate = { world -> vm.openMap(world) { } },
                     vm = vm,
                 )
-                chatPeer != null -> ChatPage(vm, chatPeer) { chatOpen = null }
+                chatPeer != null -> ChatPage(
+                vm,
+                chatPeer,
+                photoUrl = state.cardPhotos[chatPeer]?.url,
+                photoGrid = state.cardPhotos[chatPeer]?.grid,
+            ) { chatOpen = null }
                 tab == 0 -> TodayPage(vm, state, legacyVm)
-                tab == 1 -> InboxPage(vm, state, legacyVm)
+                tab == 1 -> InboxPage(vm, state, legacyVm) { n -> chatOpen = n }
                 tab == 2 -> CrossingsPage(vm, state)
                 tab == 3 -> PostsPage(vm, state)
                 else -> MePage(vm, state, onOpenBoard = { boardOpen = true }, onOpenChat = { n -> chatOpen = n }, onOpenLegacy = { legacyRoute = it }, onOpenCard = { legacyRoute = "starcard" }, onOpenDeco = { legacyRoute = "deco" }, photoUrl = (state.card?.myStarId()?.let { state.cardPhotos[it]?.url }) ?: legacyState.photoUrl, photoGrid = state.card?.myStarId()?.let { state.cardPhotos[it]?.grid }, decoOverride = legacyState.deco)
@@ -665,7 +670,12 @@ private fun SayDialog(name: String, onDismiss: () -> Unit, onSend: (String) -> U
 // ---------------- 连向我 ----------------
 
 @Composable
-private fun InboxPage(vm: MainViewModel, s: UiState, legacyVm: LegacyViewModel) {
+private fun InboxPage(
+    vm: MainViewModel,
+    s: UiState,
+    legacyVm: LegacyViewModel,
+    onOpenChat: (Long) -> Unit,
+) {
     val legacyState by legacyVm.state.collectAsStateWithLifecycle()
     LaunchedEffect(s.inbox?.cards) {
         legacyVm.loadPhotos(s.inbox?.cards?.map { it.n } ?: emptyList())
@@ -706,6 +716,7 @@ private fun InboxPage(vm: MainViewModel, s: UiState, legacyVm: LegacyViewModel) 
                         if (c.mutual) vm.showHint("你们已经互相连上了")
                         else vm.link(c.n, null, null) { m -> vm.showHint(m) }
                     },
+                    onChat = { onOpenChat(c.n) },
                 )
                 Spacer(Modifier.height(10.dp))
             }
@@ -722,6 +733,7 @@ fun StarCardItem(
     photoUrl: String? = null,
     photoGrid: android.graphics.Bitmap? = null,
     onLink: (() -> Unit)? = null,
+    onChat: (() -> Unit)? = null,
     myScores: Map<String, Int>? = null,
 ) {
     FlippableStarCard(
@@ -749,6 +761,19 @@ fun StarCardItem(
                     Text("共同星友 $it", fontSize = 11.sp, color = MaterialTheme_color.ink2)
                 }
                 Spacer(Modifier.weight(1f))
+                if (onChat != null && c.mutual) {
+                    Text(
+                        "聊天",
+                        Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0x332FD08A))
+                            .clickable { onChat() }
+                            .padding(horizontal = 12.dp, vertical = 5.dp),
+                        fontSize = 11.sp,
+                        color = Color(0xFF2FD08A),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                }
                 if (onLink != null && !c.linked) {
                     Text(
                         "连上",

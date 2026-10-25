@@ -378,14 +378,20 @@ fun MePage(
                             .padding(vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Avatar(t.peer?.name, t.peer?.group, 36.dp)
+                        PhotoAvatar(
+                            photoUrl = s.cardPhotos[t.peer?.n]?.url,
+                            grid = s.cardPhotos[t.peer?.n]?.grid,
+                            name = t.peer?.vrc ?: t.peer?.name,
+                            size = 36.dp,
+                        )
                         Spacer(Modifier.width(10.dp))
                         Column(Modifier.weight(1f)) {
                             Text(
-                                t.peer?.name ?: "一颗星",
+                                t.peer?.vrc ?: t.peer?.name ?: "一颗星",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = MaterialTheme_color.ink,
+                                maxLines = 1,
                             )
                             Spacer(Modifier.height(2.dp))
                             Text(
@@ -678,7 +684,13 @@ private fun ScorePill(n: Int, on: Boolean, onPick: () -> Unit) {
 // ---------------- 私聊 ----------------
 
 @Composable
-fun ChatPage(vm: MainViewModel, peer: Long, onBack: () -> Unit) {
+fun ChatPage(
+    vm: MainViewModel,
+    peer: Long,
+    photoUrl: String? = null,
+    photoGrid: android.graphics.Bitmap? = null,
+    onBack: () -> Unit,
+) {
     var input by remember { mutableStateOf("") }
     var resp by remember { mutableStateOf<ChatResp?>(null) }
     var loading by remember { mutableStateOf(true) }
@@ -708,12 +720,26 @@ fun ChatPage(vm: MainViewModel, peer: Long, onBack: () -> Unit) {
                 color = MaterialTheme_color.ink,
             )
             Spacer(Modifier.width(10.dp))
-            Text(
-                resp?.peer?.name ?: "私聊",
-                fontSize = 17.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme_color.ink,
+            PhotoAvatar(
+                photoUrl = photoUrl,
+                grid = photoGrid,
+                name = resp?.peer?.vrc ?: resp?.peer?.name,
+                size = 34.dp,
             )
+            Spacer(Modifier.width(10.dp))
+            Column {
+                Text(
+                    resp?.peer?.vrc ?: resp?.peer?.name ?: "私聊",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme_color.ink,
+                    maxLines = 1,
+                )
+                val star = resp?.peer?.name
+                if (star != null && resp?.peer?.vrc != null) {
+                    Text(star, fontSize = 10.sp, color = MaterialTheme_color.ink3)
+                }
+            }
         }
 
         Box(Modifier.weight(1f)) {
