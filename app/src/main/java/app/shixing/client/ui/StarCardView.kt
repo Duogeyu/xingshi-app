@@ -971,26 +971,21 @@ private fun StickerLayer(spots: List<app.shixing.client.data.DecoSpot>) {
         spots.forEach { s ->
             val id = s.id ?: return@forEach
             val box = w * (s.size / 100f)
-            val key = "$id/${s.fin}/${s.wear}/${s.seed}"
             val url = "https://vrcc.cc/api/v1/stickers/" + id +
                 "?fin=" + (s.fin ?: "paper") + "&wear=" + s.wear + "&seed=" + s.seed
             val pic by androidx.compose.runtime.produceState<android.graphics.Bitmap?>(
                 initialValue = null,
-                key1 = key,
-            ) { value = StickerRaster.bitmap(key, url) }
-            androidx.compose.foundation.layout.Box(
-                Modifier
-                    .offset(x = w * (s.x / 100f) - box / 2, y = h * (s.y / 100f) - box / 2)
-                    .size(box)
-                    .rotate(s.rot),
-            ) {
-                pic?.let {
-                    androidx.compose.foundation.Image(
-                        bitmap = it.asImageBitmap(),
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
+                key1 = url,
+            ) { value = StickerImages.bitmap(url) }
+            pic?.let { bmp ->
+                androidx.compose.foundation.Image(
+                    bitmap = bmp.asImageBitmap(),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .offset(x = w * (s.x / 100f) - box / 2, y = h * (s.y / 100f) - box / 2)
+                        .size(box)
+                        .rotate(s.rot),
+                )
             }
         }
     }

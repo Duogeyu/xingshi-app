@@ -66,6 +66,7 @@ class MainViewModel(private val repo: Repository) : ViewModel() {
     val state: StateFlow<UiState> = _state.asStateFlow()
 
     init {
+        viewModelScope.launch { syncStickerToken() }
         viewModelScope.launch {
             val token = repo.storeToken()
             if (token != null) {
@@ -76,6 +77,10 @@ class MainViewModel(private val repo: Repository) : ViewModel() {
                 loadBoards()
             }
         }
+    }
+
+    private suspend fun syncStickerToken() {
+        app.shixing.client.ui.StickerImages.token = repo.storeToken()
     }
 
     private fun loadBoards() = viewModelScope.launch {

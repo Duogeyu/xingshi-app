@@ -435,9 +435,6 @@ private fun TodayPage(vm: MainViewModel, s: UiState, legacyVm: LegacyViewModel) 
     val cards = legacyState.recs.ifEmpty { t?.cards.orEmpty() }
     val pager = androidx.compose.foundation.pager.rememberPagerState(pageCount = { cards.size })
     val scope = rememberCoroutineScope()
-    LaunchedEffect(cards.size) {
-        if (cards.isNotEmpty()) vm.showHint("CARDJSON " + cards.first().toString().take(300))
-    }
     val round = t?.round
     val left = ((round?.max ?: 0) - (round?.used ?: 0)).coerceAtLeast(0)
     var sayFor by remember { mutableStateOf<app.shixing.client.data.StarCard?>(null) }
