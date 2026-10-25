@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -44,6 +45,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -304,6 +306,7 @@ fun MePage(
     onOpenDeco: () -> Unit = {},
     photoUrl: String? = null,
     decoOverride: kotlinx.serialization.json.JsonObject? = null,
+    deviceKey: String? = null,
 ) {
     Column(
         Modifier
@@ -319,15 +322,29 @@ fun MePage(
         PageError(vm, s, "card")
         s.card?.let { c ->
             Spacer(Modifier.height(12.dp))
-            FlippableStarCard(
-                face = c.toFace().let { f ->
-                    // 装扮是自己改的，v1 的卡不带 deco，这里用网页接口那份覆盖
-                    app.shixing.client.data.DecoCatalog.parse(decoOverride)?.let { f.copy(deco = it) } ?: f
-                },
-                photoUrl = photoUrl,
-                modifier = Modifier.fillMaxWidth(),
-                intro = c.intro,
-            )
+            // 优先用网页自己渲染的那张卡（不搬素材，卡面跟站点同步）；网页没就绪时用原生卡打底。
+            val webReady = remember { mutableStateOf(false) }
+            Box(Modifier.fillMaxWidth()) {
+                FlippableStarCard(
+                    face = c.toFace().let { f ->
+                        app.shixing.client.data.DecoCatalog.parse(decoOverride)?.let { f.copy(deco = it) } ?: f
+                    },
+                    photoUrl = photoUrl,
+                    modifier = Modifier.fillMaxWidth(),
+                    intro = c.intro,
+                )
+                if (!deviceKey.isNullOrBlank()) {
+                    WebStarCard(
+                        deviceKey = deviceKey,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(0.66f)
+                            .alpha(if (webReady.value) 1f else 0f),
+                        onReady = { webReady.value = it },
+                        onTap = onOpenCard,
+                    )
+                }
+            }
         }
 
         Spacer(Modifier.height(12.dp))
