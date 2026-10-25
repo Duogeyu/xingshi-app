@@ -166,6 +166,7 @@ fun Home(vm: MainViewModel) {
                     onSleeve = { legacyVm.equipSleeve(it) },
                     onClose = { legacyRoute = null },
                     onLogin = { legacyVm.openLogin() },
+                    onSave = { f, b, s -> legacyVm.equipAll(f, b, s) },
                 )
                 legacyRoute == "starcard" -> MyCardScreen(
                     card = state.card,

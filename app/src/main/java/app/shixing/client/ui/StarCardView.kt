@@ -148,6 +148,39 @@ fun StarCardFront(
             if (st.light) {
                 Box(Modifier.fillMaxSize().background(Color(0x0DFFFFFF)))
             }
+            // 斜向高光：网页卡面都有一层很淡的镜面感
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.White.copy(alpha = if (st.light) 0.18f else 0.07f),
+                                Color.Transparent,
+                                Color.White.copy(alpha = 0.03f),
+                                Color.Transparent,
+                            ),
+                            start = Offset(0f, 0f),
+                            end = Offset(1100f, 1700f),
+                        ),
+                    ),
+            )
+            // 四角压暗，让中间的主体更集中
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.radialGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.Black.copy(alpha = if (st.light) 0.10f else 0.34f),
+                            ),
+                            center = Offset(450f, 620f),
+                            radius = 1150f,
+                        ),
+                    ),
+            )
         }
 
         Box(

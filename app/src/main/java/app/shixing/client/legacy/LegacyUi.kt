@@ -228,6 +228,34 @@ class LegacyViewModel(private val appContext: android.content.Context) : ViewMod
         }
     }
 
+    /**
+     * 一次写回多项（卡面 + 卡背 + 卡套），点「完成」时用；只发改过的项。
+     */
+    fun equipAll(face: String?, back: String?, sleeve: String?) {
+        val cur = _state.value.deco ?: JsonObject(emptyMap())
+        val changed = mutableMapOf<String, kotlinx.serialization.json.JsonElement>()
+        face?.let { changed["face"] = JsonPrimitive(it) }
+        back?.let { changed["back"] = JsonPrimitive(it) }
+        sleeve?.let { changed["sleeve"] = JsonPrimitive(it) }
+        if (changed.isEmpty()) {
+            _state.update { it.copy(hint = "没有改动") }
+            return
+        }
+        val next = JsonObject(cur.toMutableMap().apply { putAll(changed) })
+        viewModelScope.launch(Dispatchers.IO) {
+            _state.update { it.copy(busy = true, error = null) }
+            runCatching { client.deco(next) }
+                .onSuccess { res ->
+                    val fresh = (res["deco"] as? JsonObject) ?: next
+                    _state.update { it.copy(busy = false, deco = fresh, hint = "装扮已保存") }
+                    refresh()
+                }
+                .onFailure { e ->
+                    _state.update { it.copy(busy = false, error = (e as? LegacyError)?.text ?: "保存失败，再试一次") }
+                }
+        }
+    }
+
     fun equipFace(id: String) = equip("face", id)
     fun equipBack(id: String) = equip("back", id)
     fun equipSleeve(id: String) = equip("sleeve", id)
