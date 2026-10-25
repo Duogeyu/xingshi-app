@@ -121,7 +121,15 @@ class LegacyClient(
      * 官方 v1 的 `me/today`、`me/inbox` 不带装扮（`deco`）与共同点（`common`），
      * 而网页这两个动作会带，所以卡面数据先走这里；取不到时上层再退回 v1。
      */
-    fun recs(): List<StarCard> = decodeCards(call("recs"))
+    /** 最近一次 recs 的原始 JSON（调试用，卡片里那些我们没建模的字段只能这么看） */
+    var lastRaw: String = ""
+        private set
+
+    fun recs(): List<StarCard> {
+        val obj = call("recs")
+        lastRaw = obj.toString()
+        return decodeCards(obj)
+    }
 
     fun inbox(): List<StarCard> = decodeCards(call("inbox"))
 

@@ -205,6 +205,8 @@ data class StarCard(
     val pos: String? = null,
     val lead: String? = null,
     val common: List<String> = emptyList(),
+    val sprout: Boolean = false,
+    val scores: Map<String, Int>? = null,
     /** 已经打过的分（null 表示没打过）。 */
     val rating: JsonElement? = null,
     /** 网页给这两页塞的额外字段（比如「新」标记），这里不解析。 */

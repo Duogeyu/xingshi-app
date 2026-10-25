@@ -506,7 +506,7 @@ private fun TodayPage(vm: MainViewModel, s: UiState, legacyVm: LegacyViewModel) 
                     contentAlignment = Alignment.Center,
                 ) {
                     FlippableStarCard(
-                        face = c.toFace(),
+                        face = c.toFace().copy(overlap = overlapOf(s.card?.scores?.asMap(), c.scores)),
                         photoUrl = s.cardPhotos[c.n] ?: legacyState.photos[c.n],
                         modifier = Modifier.fillMaxHeight(),
                         intro = c.intro,
@@ -515,7 +515,7 @@ private fun TodayPage(vm: MainViewModel, s: UiState, legacyVm: LegacyViewModel) 
                     )
                 }
                 // 卡下面那行小字：网页写「新芽 · 刚来不久的新星」
-                val note = c.lead
+                val note = if (c.sprout) "新芽 · 刚来不久的新星" else (c.lead ?: "")
                 if (!note.isNullOrBlank()) {
                     Row(
                         Modifier.padding(top = 14.dp),
@@ -715,9 +715,14 @@ private fun InboxPage(vm: MainViewModel, s: UiState, legacyVm: LegacyViewModel) 
 // ---------------- 共用零件 ----------------
 
 @Composable
-fun StarCardItem(c: StarCard, photoUrl: String? = null, onLink: (() -> Unit)? = null) {
+fun StarCardItem(
+    c: StarCard,
+    photoUrl: String? = null,
+    onLink: (() -> Unit)? = null,
+    myScores: Map<String, Int>? = null,
+) {
     FlippableStarCard(
-        face = c.toFace(),
+        face = c.toFace().copy(overlap = overlapOf(myScores, c.scores)),
         photoUrl = null,
         modifier = Modifier.fillMaxWidth(),
         intro = c.intro,
@@ -876,4 +881,24 @@ fun Centered(loading: Boolean, empty: String, emptyWhen: Boolean, content: @Comp
 fun Notice(text: String?) {
     if (text == null) return
     ErrorBar(text)
+}
+
+
+/** CardScores 是四个具名字段，转成 map 好算重合度。 */
+fun app.shixing.client.data.CardScores.asMap(): Map<String, Int> = pairs().toMap()
+
+/** 和我的成分有多像：逐项取 min/max，加权后取百分比。 */
+fun overlapOf(mine: Map<String, Int>?, theirs: Map<String, Int>?): Int? {
+    if (mine == null || theirs == null) return null
+    val keys = listOf("G", "W", "Z", "L")
+    var same = 0.0
+    var all = 0.0
+    keys.forEach { k ->
+        val a = (mine[k] ?: 0).toDouble()
+        val b = (theirs[k] ?: 0).toDouble()
+        same += kotlin.math.min(a, b)
+        all += kotlin.math.max(a, b)
+    }
+    if (all <= 0.0) return null
+    return (same / all * 100).toInt().coerceIn(0, 100)
 }

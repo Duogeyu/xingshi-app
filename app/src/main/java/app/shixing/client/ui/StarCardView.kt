@@ -66,6 +66,9 @@ data class CardFace(
     val hasPhoto: Boolean = false,
     /** 网页接口给的「你们的共同点」。 */
     val common: List<String> = emptyList(),
+    val scoresMap: Map<String, Int>? = null,
+    val overlap: Int? = null,
+    val sprout: Boolean = false,
 )
 
 fun MyCard.toFace(): CardFace = CardFace(
@@ -92,6 +95,8 @@ fun StarCard.toFace(): CardFace = CardFace(
     deco = DecoCatalog.parse(deco),
     hasPhoto = photo,
     common = common,
+    scoresMap = scores,
+    sprout = sprout,
 )
 
 private val GOLD = Color(0xFFE8C983)
@@ -198,8 +203,6 @@ fun StarCardFront(
         // 各档位自带的贴面光效（网页是 .mt-face-fx 那层 screen 混合）
         StyleFx(st.fx)
 
-        // 贴纸：位置来自 deco.spots，图形由官方 /api/v1/stickers 现画
-        StickerLayer(face.deco?.spots.orEmpty(), Modifier.fillMaxSize())
 
         Box(
             Modifier
@@ -303,6 +306,10 @@ fun StarCardFront(
                     )
                 }
                 face.scores?.let { scores -> ScoreBar(scores, Modifier.padding(top = 12.dp)) }
+            // 别人的卡：TA 的成分 + 和我的重合度
+            face.scoresMap?.let { m ->
+                if (face.scores == null) MixBlock(m, face.overlap, Modifier.padding(top = 12.dp))
+            }
             }
         }
     }
@@ -509,15 +516,13 @@ fun FlippableStarCard(
         label = "flip",
     )
     val sleeve = DecoCatalog.sleeve(face.deco?.sleeve)
-    val pad = if (sleeve != null) 11.dp else 0.dp
+    val pad = 0.dp
 
     Box(modifier) {
-        // 壳先铺满，卡再缩进去一圈，四周都能看到卡套
-        if (sleeve != null) SleeveShell(sleeve)
+        // 卡本身铺满整格（和没卡套的卡一样大），卡套是一层盖在上面的塑料
         Box(
             Modifier
                 .fillMaxSize()
-                .padding(start = pad, end = pad, top = pad, bottom = pad + 8.dp)
                 .graphicsLayer {
                     rotationY = rotation
                     cameraDistance = 12f * density
@@ -540,72 +545,27 @@ fun FlippableStarCard(
                 }
             }
         }
-        // 袋口：压在卡下沿，做出「插进去」的层次
-        if (sleeve != null) {
-            SleeveLip(sleeve, pad, Modifier.align(Alignment.BottomCenter))
-        }
+        // 卡套：一整层盖在卡上，只让边缘和袋口看得出来
+        if (sleeve != null) SleeveShell(sleeve, Modifier.fillMaxSize())
     }
 }
 
 /** 卡套的外壳：铺满整格，卡从里面垫出去一圈。 */
 @Composable
-private fun SleeveShell(style: SleeveStyle) {
-    val shape = RoundedCornerShape(30.dp)
-    Box(Modifier.fillMaxSize().clip(shape).background(style.fill)) {
-        Canvas(Modifier.fillMaxSize()) {
-            val w = size.width
-            val h = size.height
-            when (style.pattern) {
-                SleeveStyle.Pattern.STARS -> {
-                    var s = 37
-                    repeat(60) {
-                        s = (s * 1103515245 + 12345) and 0x7FFFFFFF
-                        val x = (s % 1000) / 1000f * w
-                        s = (s * 1103515245 + 12345) and 0x7FFFFFFF
-                        val y = (s % 1000) / 1000f * h
-                        drawCircle(Color(0x55FFFFFF), 1.5f, Offset(x, y))
-                    }
-                }
-
-                SleeveStyle.Pattern.CHART -> {
-                    var x = 0f
-                    while (x < w) {
-                        drawLine(Color(0x1F78C8FF), Offset(x, 0f), Offset(x, h), 1f)
-                        x += w / 12f
-                    }
-                    var y = 0f
-                    while (y < h) {
-                        drawLine(Color(0x1F78C8FF), Offset(0f, y), Offset(w, y), 1f)
-                        y += h / 16f
-                    }
-                }
-
-                SleeveStyle.Pattern.WALLS -> {
-                    var x = 0f
-                    while (x < w) {
-                        drawLine(Color(0x12FFFFFF), Offset(x, 0f), Offset(x, h), 2f)
-                        x += w / 9f
-                    }
-                }
-
-                else -> Unit
-            }
-        }
+private fun SleeveShell(style: SleeveStyle, modifier: Modifier = Modifier) {
+    // 卡套只做两件事：一圈内边、底部一个袋口。别整片盖颜色，否则卡会看起来像蒙了层膜。
+    Box(modifier) {
         Box(
             Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.linearGradient(
-                        style.gloss,
-                        start = Offset(0f, 0f),
-                        end = Offset(900f, 1200f),
-                    ),
-                ),
+                .padding(5.dp)
+                .border(2.dp, style.ring.copy(alpha = 0.5f), RoundedCornerShape(21.dp)),
         )
         if (style.foil) {
             Box(
                 Modifier
                     .fillMaxSize()
+                    .padding(3.dp)
                     .border(
                         3.dp,
                         Brush.sweepGradient(
@@ -614,11 +574,31 @@ private fun SleeveShell(style: SleeveStyle) {
                                 Color(0xFF7AD0FF), Color(0xFFC08BFF), Color(0xFFFF7AD9),
                             ),
                         ),
-                        shape,
+                        RoundedCornerShape(23.dp),
                     ),
             )
         }
-        Box(Modifier.fillMaxSize().border(1.5.dp, style.ring.copy(alpha = 0.65f), shape))
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(22.dp)
+                .align(Alignment.BottomCenter)
+                .clip(RoundedCornerShape(bottomStart = 26.dp, bottomEnd = 26.dp))
+                .background(style.fill.copy(alpha = 0.22f)),
+        ) {
+            Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0x44FFFFFF)))
+        }
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.linearGradient(
+                        listOf(Color(0x0AFFFFFF), Color(0x00FFFFFF), Color(0x05FFFFFF)),
+                        start = Offset(0f, 0f),
+                        end = Offset(1200f, 1600f),
+                    ),
+                ),
+        )
     }
 }
 
@@ -1003,5 +983,46 @@ fun SleevePreview(style: SleeveStyle, modifier: Modifier = Modifier) {
                 .background(Brush.linearGradient(listOf(Color(0xFF2A2440), Color(0xFF0C0E16)))),
         )
         SleeveOverlay(style)
+    }
+}
+
+/**
+ * 「TA 的成分 / 和你重合 N%」——网页版是这一块四条短条加百分比。
+ * 数据来自卡片 JSON 的 scores{G,W,Z,L}，重合度是拿我自己的 scores 逐项算的。
+ */
+@Composable
+private fun MixBlock(m: Map<String, Int>, overlap: Int?, modifier: Modifier = Modifier) {
+    val order = listOf("L" to "聊天", "Z" to "创作", "G" to "漫游", "W" to "游戏")
+    val total = order.sumOf { (k, _) -> m[k] ?: 0 }.coerceAtLeast(1)
+    Column(modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("TA 的成分", fontSize = 12.sp, color = Color(0xCCFFFFFF), fontWeight = FontWeight.Medium)
+            Spacer(Modifier.weight(1f))
+            if (overlap != null) {
+                Text("和你重合 $overlap%", fontSize = 12.sp, color = Color(0xFFF3D38F), fontWeight = FontWeight.SemiBold)
+            }
+        }
+        Spacer(Modifier.height(7.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            order.forEach { (k, _) ->
+                val v = (m[k] ?: 0)
+                val frac = v.toFloat() / total
+                Box(
+                    Modifier
+                        .weight(if (v <= 0) 0.12f else frac.coerceAtLeast(0.12f))
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(Color(app.shixing.client.data.Groups.color(k))),
+                )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Row {
+            order.forEach { (k, label) ->
+                val pct = Math.round((m[k] ?: 0) * 100f / total)
+                Text("● $label $pct%", fontSize = 10.5.sp, color = Color(0x99FFFFFF))
+                Spacer(Modifier.width(10.dp))
+            }
+        }
     }
 }

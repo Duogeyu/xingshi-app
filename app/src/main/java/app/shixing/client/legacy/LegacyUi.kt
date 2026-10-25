@@ -86,6 +86,7 @@ class LegacyViewModel(private val appContext: android.content.Context) : ViewMod
         val photos: Map<Long, String> = emptyMap(),
         /** 今天推荐 / 连向我：走网页接口拿到的带装扮的卡。 */
         val recs: List<app.shixing.client.data.StarCard> = emptyList(),
+        val recsJson: String = "",
         val inbox: List<app.shixing.client.data.StarCard> = emptyList(),
         val cardsLoaded: Boolean = false,
         /** 我自己的装扮（网页 me.deco 原样保留，改哪项就改哪项再写回）。 */
@@ -169,7 +170,8 @@ class LegacyViewModel(private val appContext: android.content.Context) : ViewMod
             runCatching {
                 val recs = client.recs()
                 val inbox = client.inbox()
-                _state.update { it.copy(recs = recs, inbox = inbox, cardsLoaded = true) }
+                _state.update { it.copy(recs = recs,
+                    recsJson = runCatching { client.lastRaw }.getOrDefault(""), inbox = inbox, cardsLoaded = true) }
                 if (recs.isNotEmpty()) loadPhotos(recs.map { it.n } + inbox.map { it.n })
             }
             val parsedDeco = (me?.get("me") as? JsonObject)?.get("deco") as? JsonObject
