@@ -697,6 +697,8 @@ private fun InboxPage(
     val cards = legacyState.inbox.ifEmpty { i?.cards.orEmpty() }
     val pager = androidx.compose.foundation.pager.rememberPagerState(pageCount = { cards.size })
     var subTab by remember { mutableStateOf(0) }
+    var expandedThreads by remember { mutableStateOf(false) }
+    var previewStar by remember { mutableStateOf<app.shixing.client.data.StarCard?>(null) }
 
     Column(Modifier.fillMaxSize()) {
         // 顶：标题 + 进度
@@ -708,7 +710,7 @@ private fun InboxPage(
         ) {
             Text(
                 "连向我",
-                fontSize = 26.sp,
+                fontSize = 22.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme_color.ink,
             )
@@ -761,6 +763,26 @@ private fun InboxPage(
 
         // 上：和我连上的人（照片头像 + VRC 名 + 最后一句话）
         val threads = s.threads.ifEmpty { emptyList() }
+
+        // 查看全部：摊成网格，点头像开大卡
+        if (expandedThreads) {
+            ThreadsGrid(
+                threads = threads,
+                cards = cards,
+                photos = s.cardPhotos,
+                onClose = { expandedThreads = false },
+                onPick = { previewStar = it },
+            )
+            previewStar?.let { c ->
+                CardPreviewDialog(
+                    card = c,
+                    photoUrl = s.cardPhotos[c.n]?.url ?: legacyState.photos[c.n],
+                    photoGrid = s.cardPhotos[c.n]?.grid,
+                    onDismiss = { previewStar = null },
+                )
+            }
+            return@Column
+        }
         var showAllThreads by remember { mutableStateOf(false) }
         LaunchedEffect(threads.map { it.peer?.n }) {
             threads.forEach { t -> t.peer?.n?.let { if (s.cardPhotos[it] == null) vm.loadPhoto(it) } }
@@ -774,11 +796,11 @@ private fun InboxPage(
                     .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.Top,
             ) {
-                threads.take(if (showAllThreads) 99 else 8).forEach { t ->
+                threads.take(8).forEach { t ->
                     val star = t.peer?.n ?: return@forEach
                     Column(
                         Modifier
-                            .width(72.dp)
+                            .width(64.dp)
                             .clickable { onOpenChat(star) },
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
@@ -786,7 +808,7 @@ private fun InboxPage(
                             photoUrl = s.cardPhotos[star]?.url,
                             grid = s.cardPhotos[star]?.grid,
                             name = t.peer?.vrc ?: t.peer?.name,
-                            size = 52.dp,
+                            size = 44.dp,
                         )
                         Spacer(Modifier.height(5.dp))
                         Text(
@@ -814,11 +836,11 @@ private fun InboxPage(
                     Modifier
                         .clip(RoundedCornerShape(99.dp))
                         .background(Color(0xFF141826))
-                        .clickable { showAllThreads = !showAllThreads }
+                        .clickable { expandedThreads = true }
                         .padding(horizontal = 10.dp, vertical = 5.dp),
                 ) {
                     Text(
-                        if (showAllThreads) "收起" else "查看全部",
+                        "查看全部",
                         fontSize = 11.sp,
                         color = MaterialTheme_color.ink2,
                     )
@@ -879,7 +901,7 @@ private fun InboxPage(
                     photoUrl = s.cardPhotos[c.n]?.url ?: legacyState.photos[c.n],
                     photoGrid = s.cardPhotos[c.n]?.grid,
                     modifier = Modifier
-                        .fillMaxWidth(0.94f)
+                        .fillMaxWidth(0.86f)
                         .aspectRatio(0.75f),
                     intro = c.intro,
                     about = c.about.map { it.q to it.a },

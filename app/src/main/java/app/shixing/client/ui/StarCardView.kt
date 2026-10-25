@@ -959,11 +959,16 @@ private fun MixBlock(m: Map<String, Int>, overlap: Int?, modifier: Modifier = Mo
             }
         }
         Spacer(Modifier.height(8.dp))
-        Row {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             order.forEach { (k, label) ->
                 val pct = Math.round((m[k] ?: 0) * 100f / total)
-                Text("● $label $pct%", fontSize = 10.5.sp, color = Color(0x99FFFFFF))
-                Spacer(Modifier.width(10.dp))
+                Text(
+                    "● $label $pct%",
+                    fontSize = 9.5.sp,
+                    color = Color(0x99FFFFFF),
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f),
+                )
             }
         }
     }

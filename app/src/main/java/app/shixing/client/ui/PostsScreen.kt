@@ -61,6 +61,9 @@ fun PostsScreen(vm: MainViewModel, s: UiState, legacyVm: LegacyViewModel) {
     val xd = mine?.childObj("xd")
     val rooms = (mine?.get("xdRooms") as? JsonArray)
 
+    androidx.compose.runtime.LaunchedEffect(s.posts.map { it.author?.n }) {
+        s.posts.forEach { p -> p.author?.n?.let { n -> if (s.cardPhotos[n] == null) vm.loadPhoto(n) } }
+    }
     Column(Modifier.fillMaxSize()) {
         // 顶：动态 / 榜单 / 发动态
         Row(
@@ -226,7 +229,7 @@ fun PostsScreen(vm: MainViewModel, s: UiState, legacyVm: LegacyViewModel) {
             } else {
                 list.forEach { p ->
                     Box(Modifier.padding(horizontal = 18.dp, vertical = 6.dp)) {
-                        PostCard(vm, p)
+                        PostCard(vm, p, s.cardPhotos)
                     }
                 }
             }
@@ -261,11 +264,20 @@ private fun TicketCard(title: String, world: String, time: String, joined: Int) 
 }
 
 @Composable
-private fun PostCard(vm: MainViewModel, p: Post) {
-    val who = p.author?.name ?: if (p.kind == "official") "星遇同频" else "一颗星"
+private fun PostCard(vm: MainViewModel, p: Post, photos: Map<Long, app.shixing.client.data.CardPhoto> = emptyMap()) {
+    val au = p.author
+    val mutual = au?.mutual == true
+    // 连上的用照片 + VRChat 名，没连上的用模糊格 + 代号
+    val who = (if (mutual) au?.vrc ?: au?.name else au?.name)
+        ?: if (p.kind == "official") "星遇同频" else "一颗星"
     BoxCard(tint = Color(Groups.color(p.author?.group))) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Avatar(who, p.author?.group, 32.dp)
+            PhotoAvatar(
+                photoUrl = if (mutual) au?.let { photos[it.n]?.url } else null,
+                grid = au?.let { photos[it.n]?.grid },
+                name = who,
+                size = 32.dp,
+            )
             Spacer(Modifier.width(9.dp))
             Text(who, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme_color.ink)
             p.author?.group?.let {
