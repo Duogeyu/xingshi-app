@@ -397,15 +397,22 @@ fun MePage(
                 color = MaterialTheme_color.ink,
             )
             Text(
-                "仓库、装扮、兑换码、设备管理这些官方接口还没开放，走的是网页自己的接口。",
+                "装扮和仓库这些官方接口还没开放，走的是网页自己的接口。",
                 fontSize = 11.sp,
                 color = MaterialTheme_color.ink3,
                 modifier = Modifier.padding(top = 4.dp, bottom = 10.dp),
             )
             LegacyRow("装扮", "卡面、卡背") { onOpenDeco() }
-            LegacyRow("我的仓库", "贴纸包、卡面、星尘") { onOpenLegacy("bag") }
-            LegacyRow("兑换码", "兑换贴纸包和装扮") { onOpenLegacy("redeem") }
-            LegacyRow("账号与设备", "看登录的设备、踢掉别人") { onOpenLegacy("account") }
+            // 其余三项还没验收完，先藏起来；清单见 docs/TODO.md
+            if (WebFeatures.ALL) LegacyRow("我的仓库", "贴纸包、卡面、星尘") { onOpenLegacy("bag") }
+            if (WebFeatures.ALL) LegacyRow("兑换码", "兑换贴纸包和装扮") { onOpenLegacy("redeem") }
+            if (WebFeatures.ALL) LegacyRow("账号与设备", "看登录的设备、踢掉别人") { onOpenLegacy("account") }
+        }
+        // 私聊列表也要照片：这里给每个会话的对方拉一次头像
+        androidx.compose.runtime.LaunchedEffect(s.threads.map { it.peer?.n }) {
+            s.threads.forEach { th ->
+                th.peer?.n?.let { n -> if (s.cardPhotos[n] == null) vm.loadPhoto(n) }
+            }
         }
 // 私聊
         Spacer(Modifier.height(14.dp))
@@ -983,4 +990,10 @@ private fun LegacyRow(title: String, sub: String, onClick: () -> Unit) {
         }
         Text("›", fontSize = 18.sp, color = MaterialTheme_color.ink3)
     }
+}
+
+/** 「网页功能」里还没验收完的入口：先关掉，清单见 docs/TODO.md。 */
+object WebFeatures {
+    /** 我的仓库 / 兑换码 / 账号与设备 */
+    const val ALL = false
 }
