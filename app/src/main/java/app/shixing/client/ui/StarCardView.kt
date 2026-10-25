@@ -36,7 +36,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.shixing.client.data.CardDeco
 import app.shixing.client.data.CardScores
+import app.shixing.client.data.DecoCatalog
 import app.shixing.client.data.Groups
 import app.shixing.client.data.MyCard
 import app.shixing.client.data.StarCard
@@ -52,6 +54,10 @@ data class CardFace(
     val scores: CardScores? = null,
     /** 卡面上的编号：自己的用 star，别人的用 n。 */
     val no: Int? = null,
+    /** 网页给的装扮：卡面档位 / 卡背 / 卡套 / 贴纸位置。 */
+    val deco: CardDeco? = null,
+    /** 对方有照片（能不能显示还得看有没有取到链接）。 */
+    val hasPhoto: Boolean = false,
 )
 
 fun MyCard.toFace(): CardFace = CardFace(
@@ -62,6 +68,8 @@ fun MyCard.toFace(): CardFace = CardFace(
     verified = true,
     scores = scores,
     no = star,
+    deco = DecoCatalog.parse(deco),
+    hasPhoto = photo,
 )
 
 fun StarCard.toFace(): CardFace = CardFace(
@@ -72,6 +80,8 @@ fun StarCard.toFace(): CardFace = CardFace(
     verified = verified,
     scores = null,
     no = star ?: n.toInt(),
+    deco = DecoCatalog.parse(deco),
+    hasPhoto = photo,
 )
 
 private val GOLD = Color(0xFFE8C983)
@@ -84,8 +94,8 @@ fun StarCardFront(
     faceLabel: String? = null,
 ) {
     val shape = RoundedCornerShape(26.dp)
-    val accent = Color(Groups.color(face.group ?: "G"))
-    val ring = Brush.linearGradient(listOf(GOLD, Color(0xFF8A6A32)))
+    val st = DecoCatalog.style(face.deco?.face)
+    val ring = Brush.linearGradient(listOf(st.frame, st.frame.copy(alpha = 0.45f)))
 
     Box(
         modifier
@@ -107,12 +117,33 @@ fun StarCardFront(
                     .fillMaxSize()
                     .background(
                         Brush.linearGradient(
-                            listOf(accent.copy(alpha = 0.45f), Color(0xFF0A0C13)),
+                            listOf(st.top, st.bottom),
                             start = Offset.Zero,
                             end = Offset(900f, 1400f),
                         ),
                     ),
             )
+            // 卡面档位自带的几团柔光（网页是 5 个点位，这里取同样位置的三团做主视觉）
+            listOf(
+                Triple(0.86f, 0.10f, 0.55f),
+                Triple(0.08f, 0.46f, 0.42f),
+                Triple(0.78f, 0.82f, 0.5f),
+            ).forEach { (px, py, a) ->
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.radialGradient(
+                                colors = listOf(st.glow.copy(alpha = a * 0.5f), Color.Transparent),
+                                center = Offset(px * 900f, py * 1400f),
+                                radius = 620f,
+                            ),
+                        ),
+                )
+            }
+            if (st.light) {
+                Box(Modifier.fillMaxSize().background(Color(0x0DFFFFFF)))
+            }
         }
 
         Box(
@@ -120,9 +151,9 @@ fun StarCardFront(
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        0.35f to Color.Transparent,
-                        0.62f to Color(0x9905060A),
-                        1f to Color(0xF205060A),
+                        0.34f to Color.Transparent,
+                        0.62f to (if (st.light) Color(0x33FFFFFF) else Color(0x9905060A)),
+                        1f to (if (st.light) Color(0xE6FFFFFF) else Color(0xF205060A)),
                     ),
                 ),
         )
@@ -137,7 +168,7 @@ fun StarCardFront(
                 Text(
                     "VRCHAT 中文社区 · 星遇同频",
                     fontSize = 8.sp,
-                    color = GOLD,
+                    color = st.frame,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Spacer(Modifier.weight(1f))
@@ -145,7 +176,7 @@ fun StarCardFront(
                     Text(
                         "No." + n.toString().padStart(5, '0'),
                         fontSize = 15.sp,
-                        color = GOLD,
+                        color = st.frame,
                         fontWeight = FontWeight.Bold,
                     )
                 }
@@ -172,7 +203,7 @@ fun StarCardFront(
                     Text(
                         "来自" + GroupName.of(face.group),
                         fontSize = 11.sp,
-                        color = GOLD,
+                        color = st.frame,
                         fontWeight = FontWeight.SemiBold,
                     )
                     if (face.verified) {
@@ -192,14 +223,14 @@ fun StarCardFront(
                     face.name,
                     fontSize = 26.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFFF3F4F8),
+                    color = st.ink,
                     modifier = Modifier.padding(top = 4.dp),
                 )
                 face.line?.takeIf { it.isNotBlank() }?.let {
                     Text(
                         it,
                         fontSize = 12.sp,
-                        color = Color(0xFFE9E4D6),
+                        color = st.subInk,
                         lineHeight = 18.sp,
                         modifier = Modifier.padding(top = 4.dp),
                     )
@@ -267,13 +298,15 @@ fun StarCardBack(
     footer: (@Composable () -> Unit)? = null,
 ) {
     val shape = RoundedCornerShape(26.dp)
-    val ring = Brush.linearGradient(listOf(GOLD, Color(0xFF8A6A32)))
+    val st = DecoCatalog.style(face.deco?.face)
+    val bk = DecoCatalog.back(face.deco?.back)
+    val ring = Brush.linearGradient(listOf(st.frame, st.frame.copy(alpha = 0.45f)))
 
     Column(
         modifier
             .aspectRatio(0.70f)
             .clip(shape)
-            .background(Color(0xFF0B0D15))
+            .background(bk.bg)
             .border(2.dp, ring, shape)
             .padding(18.dp),
     ) {
@@ -281,7 +314,7 @@ fun StarCardBack(
             Text(
                 "No." + n.toString().padStart(5, '0'),
                 fontSize = 12.sp,
-                color = GOLD,
+                color = bk.ink.copy(alpha = 0.9f),
                 fontWeight = FontWeight.Bold,
             )
         }
@@ -289,7 +322,7 @@ fun StarCardBack(
             face.name,
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFFF3F4F8),
+            color = bk.ink,
             modifier = Modifier.padding(top = 4.dp),
         )
         face.line?.takeIf { it.isNotBlank() }?.let {

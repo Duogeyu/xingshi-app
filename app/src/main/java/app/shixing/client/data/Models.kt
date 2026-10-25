@@ -3,6 +3,7 @@ package app.shixing.client.data
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -171,6 +172,8 @@ data class MyCard(
     val vibe: String? = null,
     val scores: CardScores? = null,
     val intro: String? = null,
+    val photo: Boolean = false,
+    val deco: JsonObject? = null,
 )
 
 // ---- 今天 / 连向我 里的星卡 ----
@@ -186,6 +189,8 @@ data class StarCard(
     val group: String? = null,
     val groupName: String? = null,
     val vibe: String? = null,
+    val photo: Boolean = false,
+    val deco: JsonObject? = null,
     val intro: String? = null,
     val about: List<Qa> = emptyList(),
     val star: Int? = null,
