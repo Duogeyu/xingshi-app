@@ -3,15 +3,24 @@ package app.shixing.client.data
 import androidx.compose.ui.graphics.Color
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonPrimitive
 
-/** 贴纸在卡面上的位置（网页 spots 的四个数：x%、y%、旋转角、尺寸）。 */
+/**
+ * 一张贴纸。网页的 spots 每一项是
+ * `[序号, 贴纸 id, 工艺, 磨损, 随机种子, [x%, y%, 旋转角, 尺寸%]]`。
+ */
 data class DecoSpot(
-    val x: Float,
-    val y: Float,
-    val rot: Float,
-    val size: Float,
+    val id: String? = null,
+    val fin: String? = null,
+    val wear: Float = 0f,
+    val seed: Int = 0,
+    val x: Float = 0f,
+    val y: Float = 0f,
+    val rot: Float = 0f,
+    val size: Float = 0f,
 )
 
 /** 一张卡自带的装扮，字段名跟网页一致。 */
@@ -249,10 +258,27 @@ object DecoCatalog {
     /** 从卡片 JSON 里读 deco；没有就返回 null。 */
     fun parse(deco: JsonObject?): CardDeco? {
         if (deco == null) return null
+        // 每一项形如 [序号, 贴纸 id, 工艺, 磨损, 种子?, [x%, y%, 旋转角, 尺寸%]]
+        // 种子可能没有，所以不按固定下标取，按「字符串 / 数字 / 内层数组」分类来读。
         val spots = (deco["spots"] as? JsonArray)?.mapNotNull { el ->
             val arr = el as? JsonArray ?: return@mapNotNull null
-            fun at(i: Int): Float = arr.getOrNull(i)?.jsonPrimitive?.content?.toFloatOrNull() ?: 0f
-            if (arr.size < 4) null else DecoSpot(at(0), at(1), at(2), at(3))
+            val box = arr.filterIsInstance<JsonArray>().lastOrNull() ?: return@mapNotNull null
+            if (box.size < 4) return@mapNotNull null
+            fun f(i: Int) = box.getOrNull(i)?.jsonPrimitive?.content?.toFloatOrNull() ?: 0f
+
+            val strings = arr.filterIsInstance<JsonPrimitive>()
+                .filter { it.isString }
+                .map { it.content }
+            val numbers = arr.filterIsInstance<JsonPrimitive>()
+                .filter { !it.isString && it.content.toFloatOrNull() != null }
+
+            DecoSpot(
+                id = strings.getOrNull(0),
+                fin = strings.getOrNull(1),
+                wear = numbers.getOrNull(1)?.content?.toFloatOrNull() ?: 0f,
+                seed = numbers.getOrNull(2)?.content?.toIntOrNull() ?: 0,
+                x = f(0), y = f(1), rot = f(2), size = f(3),
+            )
         }.orEmpty()
         return CardDeco(
             face = (deco["face"] as? JsonElement)?.jsonPrimitive?.content,

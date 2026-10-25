@@ -539,6 +539,7 @@ private fun InboxPage(vm: MainViewModel, s: UiState, legacyVm: LegacyViewModel) 
 
 @Composable
 fun StarCardItem(c: StarCard, photoUrl: String? = null, onLink: (() -> Unit)? = null) {
+    android.util.Log.w("shixing-item", "item n=" + c.n + " deco=" + (c.deco?.let { d -> d["face"]?.toString() } ?: "null"))
     FlippableStarCard(
         face = c.toFace(),
         photoUrl = null,

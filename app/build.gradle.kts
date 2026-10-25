@@ -83,6 +83,8 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.coil.compose)
+    implementation("io.coil-kt:coil-svg:2.7.0")
+    implementation("com.caverock:androidsvg-aar:1.4")
 
     testImplementation(libs.junit)
     testImplementation(libs.okhttp.mockwebserver)

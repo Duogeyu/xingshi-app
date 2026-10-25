@@ -27,10 +27,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
+import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -104,6 +107,7 @@ fun StarCardFront(
 ) {
     val shape = RoundedCornerShape(26.dp)
     val st = DecoCatalog.style(face.deco?.face)
+    android.util.Log.w("shixing-card", "front name=" + face.name + " deco=" + (face.deco?.face ?: "null") + " spots=" + (face.deco?.spots?.size ?: -1))
     // 网页的内框是一圈金属/镭射渐变（.mt-mc-frame），厚度各档不同
     val ring = Brush.linearGradient(
         st.frameColors,
@@ -195,6 +199,9 @@ fun StarCardFront(
 
         // 各档位自带的贴面光效（网页是 .mt-face-fx 那层 screen 混合）
         StyleFx(st.fx)
+
+        // 贴纸：位置与尺寸来自 deco.spots，图形由官方 /api/v1/stickers 现画
+        StickerLayer(face.deco?.spots.orEmpty())
 
         Box(
             Modifier
@@ -361,6 +368,7 @@ fun StarCardBack(
 ) {
     val shape = RoundedCornerShape(26.dp)
     val st = DecoCatalog.style(face.deco?.face)
+    android.util.Log.w("shixing-card", "front name=" + face.name + " deco=" + (face.deco?.face ?: "null") + " spots=" + (face.deco?.spots?.size ?: -1))
     val bk = DecoCatalog.back(face.deco?.back)
     val ring = Brush.linearGradient(bk.frameColors, start = Offset.Zero, end = Offset(700f, 1050f))
 
@@ -496,6 +504,7 @@ fun FlippableStarCard(
     about: List<Pair<String?, String?>> = emptyList(),
     footer: (@Composable () -> Unit)? = null,
 ) {
+    android.util.Log.w("shixing-flip", "flip name=" + face.name)
     var flipped by remember(face.star) { mutableStateOf(false) }
     val rotation by animateFloatAsState(
         targetValue = if (flipped) 180f else 0f,
@@ -897,5 +906,66 @@ fun SleevePreview(style: SleeveStyle, modifier: Modifier = Modifier) {
                 .background(Brush.linearGradient(listOf(Color(0xFF2A2440), Color(0xFF0C0E16)))),
         )
         SleeveOverlay(style)
+    }
+}
+/**
+ * 贴纸层。位置与大小都按网页的口径算：x/y 是卡片宽高的百分比，size 是卡片宽度的百分比。
+ * 图形来自官方接口 `/api/v1/stickers/{id}?fin=&wear=&seed=`，由站点自己那段代码画成 SVG，
+ * 所以跟网页是同一张图，不需要我们复刻任何素材。
+ */
+@androidx.compose.runtime.Composable
+private fun StickerLayer(spots: List<app.shixing.client.data.DecoSpot>) {
+    if (spots.isEmpty()) return
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+        val w = maxWidth
+        val h = maxHeight
+        spots.forEach { s ->
+            val id = s.id ?: return@forEach
+            val box = w * (s.size / 100f)
+            val key = "$id/${s.fin}/${s.wear}/${s.seed}"
+            val url = "https://vrcc.cc/api/v1/stickers/" + id +
+                "?fin=" + (s.fin ?: "paper") + "&wear=" + s.wear + "&seed=" + s.seed
+            val pic by androidx.compose.runtime.produceState<android.graphics.Picture?>(
+                initialValue = null,
+                key1 = key,
+            ) { value = SvgStickers.picture(key, url) }
+            androidx.compose.foundation.layout.Box(
+                Modifier
+                    .offset(x = w * (s.x / 100f) - box / 2, y = h * (s.y / 100f) - box / 2)
+                    .size(box)
+                    .rotate(s.rot),
+            ) {
+                val p = pic
+                if (p != null) {
+                    androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                        val native = drawContext.canvas.nativeCanvas
+                        native.save()
+                        native.scale(size.width / 124f, size.height / 124f)
+                        native.translate(12f, 12f)
+                        native.drawPicture(p)
+                        native.restore()
+                    }
+                }
+            }
+        }
+    }
+}
+/** Coil 默认不认 SVG，这里显式注册一个能解 SVG 的 ImageLoader（官方贴纸接口返回的就是 SVG）。 */
+object SvgImages {
+    @Volatile
+    private var cached: coil.ImageLoader? = null
+
+    fun loader(context: android.content.Context): coil.ImageLoader {
+        cached?.let { return it }
+        synchronized(this) {
+            cached?.let { return it }
+            val app = context.applicationContext
+            val loader = coil.ImageLoader.Builder(app)
+                .components { add(coil.decode.SvgDecoder.Factory()) }
+                .crossfade(false)
+                .build()
+            cached = loader
+            return loader
+        }
     }
 }
