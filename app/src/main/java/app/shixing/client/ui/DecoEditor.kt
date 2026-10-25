@@ -299,38 +299,65 @@ private fun BackGrid(cur: String, owned: Map<String, LegacyViewModel.Owned>, onP
 
 @Composable
 private fun SleeveList(list: List<LegacyViewModel.Owned>, cur: String?, onPick: (String) -> Unit) {
-    Text("卡套 ${list.size} 个", fontSize = 11.sp, color = MaterialTheme_color.ink3, modifier = Modifier.padding(bottom = 10.dp))
+    Text(
+        "卡套 ${list.size} 个　开卡面包或兑换获得",
+        fontSize = 11.sp,
+        color = MaterialTheme_color.ink3,
+        modifier = Modifier.padding(bottom = 10.dp),
+    )
     if (list.isEmpty()) {
         Empty("仓库里还没有卡套。开包或兑换之后会出现在这里。")
         return
     }
-    list.forEach { v ->
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(if (v.key == cur) MaterialTheme_color.card2 else MaterialTheme_color.card)
-                .clickable { onPick(v.key) }
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column {
-                Text(v.key, fontSize = 14.sp, color = MaterialTheme_color.ink)
-                expiryText(v.until)?.let {
-                    Text(it, fontSize = 10.sp, color = MaterialTheme_color.ink3, modifier = Modifier.padding(top = 2.dp))
+    val rows = list.chunked(3)
+    rows.forEach { row ->
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            row.forEach { v ->
+                val sv = DecoCatalog.sleeve(v.key)
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(96.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFF07080D))
+                            .border(
+                                width = if (v.key == cur) 2.dp else 1.dp,
+                                color = if (v.key == cur) MaterialTheme_color.accent else Color(0x14FFFFFF),
+                                shape = RoundedCornerShape(12.dp),
+                            )
+                            .clickable { onPick(v.key) },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (sv != null) {
+                            SleevePreview(sv, Modifier.fillMaxSize().padding(5.dp))
+                        }
+                        if (v.key == cur) {
+                            Box(
+                                Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(4.dp)
+                                    .size(18.dp)
+                                    .clip(RoundedCornerShape(9.dp))
+                                    .background(MaterialTheme_color.accent),
+                                contentAlignment = Alignment.Center,
+                            ) { Text("✓", fontSize = 11.sp, color = Color(0xFF04121F), fontWeight = FontWeight.Bold) }
+                        }
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        sv?.name ?: v.key,
+                        fontSize = 10.sp,
+                        color = MaterialTheme_color.ink2,
+                    )
+                    expiryText(v.until)?.let { Text(it, fontSize = 9.sp, color = MaterialTheme_color.ink3) }
                 }
             }
-            Spacer(Modifier.weight(1f))
-            Text(
-                if (v.key == cur) "已装备" else "换上",
-                fontSize = 12.sp,
-                color = if (v.key == cur) MaterialTheme_color.accent else MaterialTheme_color.ink3,
-            )
+            repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
         }
+        Spacer(Modifier.height(10.dp))
     }
 }
-
 @Composable
 private fun Tile(
     name: String,

@@ -51,12 +51,35 @@ data class CardStyle(
     enum class Fx { NONE, NOVA, ECLIPSE, AURORA, COMET, CHART, ROSETTE }
 }
 
-/** 卡背风格：网页 CSS 里 `.back-*` 的实际取值。 */
+/**
+ * 卡背风格：网页 CSS 里 `.back-*` 的实际取值。
+ * 五种卡背各有自己的底纹（斜纹金线 / 蓝格 / 青海波 / 航空边）与内框。
+ */
 data class CardBackStyle(
     val id: String,
     val bg: Color,
     val ink: Color,
-)
+    val frameColors: List<Color> = listOf(
+        Color(0xFF6D4712), Color(0xFFFFE9B0), Color(0xFFB07F26), Color(0xFFFFF6D8),
+    ),
+    val framePad: Float = 1.2f,
+    val pattern: Pattern = Pattern.NONE,
+) {
+    enum class Pattern { NONE, CREST, GRID, SEIGAIHA, AIRMAIL }
+}
+
+/** 卡套外观：塑料套底 + 一圈描边 + （可选）镭射边/花纹。 */
+data class SleeveStyle(
+    val id: String,
+    val name: String,
+    val fill: Color,
+    val ring: Color,
+    val gloss: List<Color> = listOf(Color(0x22FFFFFF), Color(0x08FFFFFF)),
+    val pattern: Pattern = Pattern.NONE,
+    val foil: Boolean = false,
+) {
+    enum class Pattern { NONE, STARS, CHART, WALLS }
+}
 
 object DecoCatalog {
 
@@ -171,11 +194,44 @@ object DecoCatalog {
 
     val backs: Map<String, CardBackStyle> = listOf(
         CardBackStyle("nebula", Color(0xFF0B0D15), Color(0xFFF3F4F8)),
-        CardBackStyle("crest", Color(0xFF0E0B06), Color(0xFFF3D38F)),
-        CardBackStyle("grid", Color(0xFF0B1630), Color(0xFF8CC8FF)),
-        CardBackStyle("seigaiha", Color(0xFF0D1430), Color(0xFF9FB6FF)),
-        CardBackStyle("airmail", Color(0xFF12131A), Color(0xFFF3F4F8)),
+        CardBackStyle(
+            "crest", Color(0xFF0E0B06), Color(0xFFF3D38F),
+            pattern = CardBackStyle.Pattern.CREST,
+        ),
+        CardBackStyle(
+            "grid", Color(0xFF0B1630), Color(0xFF8CC8FF),
+            frameColors = listOf(Color(0x6678C8FF), Color(0xCCD6EEFF), Color(0x6678C8FF)),
+            framePad = 1f,
+            pattern = CardBackStyle.Pattern.GRID,
+        ),
+        CardBackStyle(
+            "seigaiha", Color(0xFF0D1430), Color(0xFF9FB6FF),
+            frameColors = listOf(Color(0x669FB6FF), Color(0xCCDCE6FF), Color(0x669FB6FF)),
+            framePad = 1f,
+            pattern = CardBackStyle.Pattern.SEIGAIHA,
+        ),
+        CardBackStyle(
+            "airmail", Color(0xFF12131A), Color(0xFFF3F4F8),
+            pattern = CardBackStyle.Pattern.AIRMAIL,
+        ),
     ).associateBy { it.id }
+
+    /** 卡套：网页 `.mt-sleeve` 的基础是半透明塑料套，再加一个变体色/花纹。 */
+    val sleeves: Map<String, SleeveStyle> = listOf(
+        SleeveStyle("brand", "品牌款", Color(0x1AFFFFFF), Color(0x66FFFFFF), listOf(Color(0x22FFFFFF), Color(0x08FFFFFF))),
+        SleeveStyle("launch", "首发金", Color(0x1AFFD479), Color(0xCCFFE4A0), listOf(Color(0x33FFD479), Color(0x0AFFD479))),
+        SleeveStyle("launchb", "首发银", Color(0x1AF4F7FF), Color(0xCCF4F7FF), listOf(Color(0x33E6ECFF), Color(0x0AE6ECFF))),
+        SleeveStyle("stars", "星空", Color(0x14FFFFFF), Color(0x80FFFFFF), listOf(Color(0x26FFFFFF), Color(0x0AFFFFFF)), pattern = SleeveStyle.Pattern.STARS),
+        SleeveStyle("chart", "星图", Color(0x1478C8FF), Color(0x8078C8FF), listOf(Color(0x2678C8FF), Color(0x0878C8FF)), pattern = SleeveStyle.Pattern.CHART),
+        SleeveStyle("walls", "墙纸", Color(0x14FFFFFF), Color(0x70FFFFFF), listOf(Color(0x22FFFFFF), Color(0x08FFFFFF)), pattern = SleeveStyle.Pattern.WALLS),
+        SleeveStyle("light", "微光", Color(0x1AFFFFFF), Color(0x99FFFFFF), listOf(Color(0x3DFFFFFF), Color(0x0AFFFFFF))),
+        SleeveStyle("tint", "染色", Color(0x1AD69BFF), Color(0x80D69BFF), listOf(Color(0x2ED69BFF), Color(0x0AD69BFF))),
+        SleeveStyle("foil", "镭射边", Color(0x14FFFFFF), Color(0x99FFFFFF), listOf(Color(0x33FF7AD9), Color(0x0A7AD0FF)), foil = true),
+        SleeveStyle("print", "印刷", Color(0x14FFFFFF), Color(0x70FFFFFF), listOf(Color(0x22FFFFFF), Color(0x08FFFFFF))),
+        SleeveStyle("glare", "炫光", Color(0x1AFFFFFF), Color(0xAAFFFFFF), listOf(Color(0x4DFFFFFF), Color(0x0AFFFFFF))),
+    ).associateBy { it.id }
+
+    fun sleeve(id: String?): SleeveStyle? = id?.let { sleeves[it] }
 
     val finishes: Map<String, String> = mapOf(
         "paper" to "纸质",

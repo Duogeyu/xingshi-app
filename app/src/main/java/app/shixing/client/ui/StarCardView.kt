@@ -38,12 +38,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.shixing.client.data.CardBackStyle
 import app.shixing.client.data.CardDeco
 import app.shixing.client.data.CardScores
 import app.shixing.client.data.CardStyle
 import app.shixing.client.data.DecoCatalog
 import app.shixing.client.data.Groups
 import app.shixing.client.data.MyCard
+import app.shixing.client.data.SleeveStyle
 import app.shixing.client.data.StarCard
 import coil.compose.AsyncImage
 
@@ -360,15 +362,22 @@ fun StarCardBack(
     val shape = RoundedCornerShape(26.dp)
     val st = DecoCatalog.style(face.deco?.face)
     val bk = DecoCatalog.back(face.deco?.back)
-    val ring = Brush.linearGradient(listOf(st.frame, st.frame.copy(alpha = 0.45f)))
+    val ring = Brush.linearGradient(bk.frameColors, start = Offset.Zero, end = Offset(700f, 1050f))
 
-    Column(
+    Box(
         modifier
             .aspectRatio(0.70f)
             .clip(shape)
             .background(bk.bg)
-            .border(2.dp, ring, shape)
-            .padding(18.dp),
+            .border((bk.framePad + 1.2f).dp, ring, shape),
+    ) {
+        // 卡背底纹：斜纹金线 / 蓝格 / 青海波 / 航空边
+        BackPattern(bk.pattern, bk.bg)
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .padding((17 + bk.framePad).dp),
     ) {
         (face.no ?: face.star)?.let { n ->
             Text(
@@ -473,6 +482,7 @@ fun StarCardBack(
         Spacer(Modifier.weight(1f))
         footer?.invoke()
     }
+    }
 }
 
 /** 一张能翻面的星卡：默认显示正面，点一下翻到背面。 */
@@ -512,6 +522,16 @@ fun FlippableStarCard(
                     about = about,
                     footer = footer,
                 )
+            }
+        }
+        // 卡套装上了就让塑料壳盖在卡上
+        DecoCatalog.sleeve(face.deco?.sleeve)?.let { sv ->
+            if (rotation <= 90f) {
+                SleeveOverlay(sv)
+            } else {
+                Box(Modifier.graphicsLayer { rotationY = 180f }) {
+                    SleeveOverlay(sv)
+                }
             }
         }
     }
@@ -698,5 +718,184 @@ private fun StyleFx(fx: CardStyle.Fx) {
 
             else -> Unit
         }
+    }
+}
+/** 卡背底纹。 */
+@Composable
+private fun BackPattern(pattern: CardBackStyle.Pattern, bg: Color) {
+    if (pattern == CardBackStyle.Pattern.NONE) return
+    Canvas(Modifier.fillMaxSize()) {
+        val w = size.width
+        val h = size.height
+        when (pattern) {
+            CardBackStyle.Pattern.CREST -> {
+                val step = w * 0.05f
+                var x = -h
+                while (x < w + h) {
+                    drawLine(Color(0x12FFD68C), Offset(x, 0f), Offset(x + h, h), 1.2f)
+                    drawLine(Color(0x12FFD68C), Offset(x, h), Offset(x + h, 0f), 1.2f)
+                    x += step
+                }
+            }
+
+            CardBackStyle.Pattern.GRID -> {
+                val big = w / 4f
+                val small = w / 20f
+                var x = 0f
+                while (x < w) {
+                    drawLine(Color(0x2878BEFF), Offset(x, 0f), Offset(x, h), 1f)
+                    x += small
+                }
+                var y = 0f
+                while (y < h) {
+                    drawLine(Color(0x2878BEFF), Offset(0f, y), Offset(w, y), 1f)
+                    y += small
+                }
+                x = 0f
+                while (x < w) {
+                    drawLine(Color(0x5578BEFF), Offset(x, 0f), Offset(x, h), 1.6f)
+                    x += big
+                }
+                y = 0f
+                while (y < h) {
+                    drawLine(Color(0x5578BEFF), Offset(0f, y), Offset(w, y), 1.6f)
+                    y += big
+                }
+            }
+
+            CardBackStyle.Pattern.SEIGAIHA -> {
+                val r = w * 0.12f
+                val dx = r * 1.6f
+                val dy = r * 0.8f
+                var row = 0
+                var y = h * 0.2f
+                while (y < h + r) {
+                    var x = if (row % 2 == 0) -r else 0f
+                    while (x < w + r) {
+                        drawCircle(Color(0x18FFFFFF), r, Offset(x, y), style = Stroke(1.4f))
+                        drawCircle(Color(0x10FFFFFF), r * 0.72f, Offset(x, y), style = Stroke(1.4f))
+                        drawCircle(Color(0x0AFFFFFF), r * 0.44f, Offset(x, y), style = Stroke(1.4f))
+                        x += dx
+                    }
+                    y += dy
+                    row++
+                }
+            }
+
+            CardBackStyle.Pattern.AIRMAIL -> {
+                // 网页是 2.6cqw 的一圈细条纹边
+                val band = w * 0.026f
+                val colors = listOf(Color(0xFFE0464E), Color(0xFFF4EFE6), Color(0xFF3563B8), Color(0xFFF4EFE6))
+                var i = 0
+                var x = -band * 2
+                while (x < w + band * 2) {
+                    val c = colors[i % colors.size]
+                    drawLine(c, Offset(x, 0f), Offset(x + band * 1.4f, band), band * 0.95f)
+                    drawLine(c, Offset(x, h), Offset(x + band * 1.4f, h - band), band * 0.95f)
+                    x += band * 1.4f
+                    i++
+                }
+                i = 0
+                var y = -band * 2
+                while (y < h + band * 2) {
+                    val c = colors[i % colors.size]
+                    drawLine(c, Offset(0f, y), Offset(band, y + band * 1.4f), band * 0.95f)
+                    drawLine(c, Offset(w, y), Offset(w - band, y + band * 1.4f), band * 0.95f)
+                    y += band * 1.4f
+                    i++
+                }
+            }
+            else -> Unit
+        }
+    }
+}
+
+/** 卡套：套在卡外面的一层塑料壳。 */
+@Composable
+private fun SleeveOverlay(style: SleeveStyle, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(26.dp)
+    Box(modifier.fillMaxSize().clip(shape).background(style.fill)) {
+        Canvas(Modifier.fillMaxSize()) {
+            val w = size.width
+            val h = size.height
+            when (style.pattern) {
+                SleeveStyle.Pattern.STARS -> {
+                    var s = 37
+                    repeat(46) {
+                        s = (s * 1103515245 + 12345) and 0x7FFFFFFF
+                        val x = (s % 1000) / 1000f * w
+                        s = (s * 1103515245 + 12345) and 0x7FFFFFFF
+                        val y = (s % 1000) / 1000f * h
+                        drawCircle(Color(0x66FFFFFF), 1.6f, Offset(x, y))
+                    }
+                }
+
+                SleeveStyle.Pattern.CHART -> {
+                    var x = 0f
+                    while (x < w) {
+                        drawLine(Color(0x2278C8FF), Offset(x, 0f), Offset(x, h), 1f)
+                        x += w / 12f
+                    }
+                    var y = 0f
+                    while (y < h) {
+                        drawLine(Color(0x2278C8FF), Offset(0f, y), Offset(w, y), 1f)
+                        y += h / 16f
+                    }
+                }
+
+                SleeveStyle.Pattern.WALLS -> {
+                    var x = 0f
+                    while (x < w) {
+                        drawLine(Color(0x14FFFFFF), Offset(x, 0f), Offset(x, h), 2f)
+                        x += w / 9f
+                    }
+                }
+
+                else -> Unit
+            }
+        }
+        // 塑料高光
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.linearGradient(
+                        style.gloss,
+                        start = Offset(0f, 0f),
+                        end = Offset(900f, 1200f),
+                    ),
+                ),
+        )
+        if (style.foil) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .border(
+                        3.dp,
+                        Brush.sweepGradient(
+                            listOf(
+                                Color(0xFFFF7AD9), Color(0xFFFFE07A), Color(0xFF7DFFC4),
+                                Color(0xFF7AD0FF), Color(0xFFC08BFF), Color(0xFFFF7AD9),
+                            ),
+                        ),
+                        shape,
+                    ),
+            )
+        }
+        Box(Modifier.fillMaxSize().border(1.dp, style.ring.copy(alpha = 0.5f), shape))
+    }
+}
+/** 卡套小样：一张卡 + 套在上面的壳，装扮页的格子用。 */
+@Composable
+fun SleevePreview(style: SleeveStyle, modifier: Modifier = Modifier) {
+    Box(modifier.clip(RoundedCornerShape(10.dp)).background(Color(0xFF10131C))) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .padding(8.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Brush.linearGradient(listOf(Color(0xFF2A2440), Color(0xFF0C0E16)))),
+        )
+        SleeveOverlay(style)
     }
 }
