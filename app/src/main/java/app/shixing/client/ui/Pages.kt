@@ -307,6 +307,8 @@ fun MePage(
     photoUrl: String? = null,
     photoGrid: android.graphics.Bitmap? = null,
     decoOverride: kotlinx.serialization.json.JsonObject? = null,
+    currentWorld: String? = null,
+    currentWorldName: String? = null,
 ) {
     Column(
         Modifier
@@ -314,6 +316,58 @@ fun MePage(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp),
     ) {
+
+        // 去过但还没打分的地图：提醒一次，当天可关掉
+        currentWorld?.let { world ->
+            val rated = s.myMaps.any { it.world == world }
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            var hidden by remember(world) {
+                mutableStateOf(app.shixing.client.data.RateHint.dismissed(ctx, world))
+            }
+            if (!rated && !hidden) {
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color(0x1F4DB4FF))
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "你在「${currentWorldName ?: "这张地图"}」，还没打分",
+                            fontSize = 12.5.sp,
+                            color = MaterialTheme_color.ink,
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text("打一分只要几秒，也能帮到后面的人。", fontSize = 11.sp, color = MaterialTheme_color.ink2)
+                    }
+                    Text(
+                        "去打分",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme_color.accent,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable { vm.openMap(world) { } }
+                            .padding(horizontal = 8.dp, vertical = 5.dp),
+                    )
+                    Text(
+                        "关闭",
+                        fontSize = 12.sp,
+                        color = MaterialTheme_color.ink2,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable {
+                                app.shixing.client.data.RateHint.dismiss(ctx, world)
+                                hidden = true
+                            }
+                            .padding(horizontal = 8.dp, vertical = 5.dp),
+                    )
+                }
+            }
+        }
         Spacer(Modifier.height(10.dp))
         ScreenTitle("我的")
 
@@ -504,7 +558,13 @@ fun MePage(
 // ---------------- 地图榜 ----------------
 
 @Composable
-fun BoardPage(maps: List<BoardMap>, onBack: () -> Unit, onRate: (String) -> Unit, vm: MainViewModel) {
+fun BoardPage(
+    maps: List<BoardMap>,
+    onBack: () -> Unit,
+    onRate: (String) -> Unit,
+    vm: MainViewModel,
+    showBack: Boolean = true,
+) {
     var sel by remember { mutableStateOf<MyMap?>(null) }
     var busy by remember { mutableStateOf(false) }
 
@@ -515,17 +575,19 @@ fun BoardPage(maps: List<BoardMap>, onBack: () -> Unit, onRate: (String) -> Unit
     ) {
         Spacer(Modifier.height(10.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                "返回",
-                Modifier
-                    .clip(RoundedCornerShape(10.dp))
-                    .clickable { onBack() }
-                    .background(MaterialTheme_color.card2)
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                fontSize = 12.sp,
-                color = MaterialTheme_color.ink,
-            )
-            Spacer(Modifier.width(10.dp))
+            if (showBack) {
+                Text(
+                    "返回",
+                    Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable { onBack() }
+                        .background(MaterialTheme_color.card2)
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    fontSize = 12.sp,
+                    color = MaterialTheme_color.ink,
+                )
+                Spacer(Modifier.width(10.dp))
+            }
             Text("地图榜", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = MaterialTheme_color.ink)
         }
         Spacer(Modifier.height(6.dp))
@@ -839,7 +901,7 @@ private fun Bubble(m: Msg) {
 
 /** 发一条星友圈：官方只说「只能发文字」，所以这里只有一个多行输入框。 */
 @Composable
-private fun WritePostCard(vm: MainViewModel) {
+fun WritePostCard(vm: MainViewModel) {
     var open by remember { mutableStateOf(false) }
     var text by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }

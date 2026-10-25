@@ -87,6 +87,8 @@ import java.util.Date
 import java.util.Locale
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.aspectRatio
+import app.shixing.client.legacy.childObj
+import app.shixing.client.legacy.str
 
 /**
  * 五个页面，和网页的底栏一致：今天 / 连向我 / 星轨 / 星友圈 / 我的。
@@ -195,8 +197,8 @@ fun Home(vm: MainViewModel) {
             ) { chatOpen = null }
                 tab == 0 -> TodayPage(vm, state, legacyVm)
                 tab == 1 -> InboxPage(vm, state, legacyVm, onOpenChat = { n -> chatOpen = n })
-                tab == 2 -> PostsPage(vm, state)
-                else -> MePage(vm, state, onOpenBoard = { boardOpen = true }, onOpenChat = { n -> chatOpen = n }, onOpenLegacy = { legacyRoute = it }, onOpenCard = { legacyRoute = "starcard" }, onOpenDeco = { legacyRoute = "deco" }, photoUrl = (state.card?.myStarId()?.let { state.cardPhotos[it]?.url }) ?: legacyState.photoUrl, photoGrid = state.card?.myStarId()?.let { state.cardPhotos[it]?.grid }, decoOverride = legacyState.deco)
+                tab == 2 -> PostsScreen(vm, state, legacyVm)
+                else -> MePage(vm, state, onOpenBoard = { boardOpen = true }, onOpenChat = { n -> chatOpen = n }, onOpenLegacy = { legacyRoute = it }, onOpenCard = { legacyRoute = "starcard" }, onOpenDeco = { legacyRoute = "deco" }, photoUrl = (state.card?.myStarId()?.let { state.cardPhotos[it]?.url }) ?: legacyState.photoUrl, photoGrid = state.card?.myStarId()?.let { state.cardPhotos[it]?.grid }, decoOverride = legacyState.deco, currentWorld = (legacyState.me?.childObj("me")?.childObj("xd")?.childObj("world")?.str("id")), currentWorldName = (legacyState.me?.childObj("me")?.childObj("xd")?.childObj("world")?.str("name")))
             }
         }
     }
