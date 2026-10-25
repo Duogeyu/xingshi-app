@@ -1,5 +1,6 @@
 package app.shixing.client.ui
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -26,13 +27,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.shixing.client.data.CardDeco
+import app.shixing.client.data.CardStyle
 import app.shixing.client.data.DecoCatalog
 import app.shixing.client.legacy.LegacyViewModel
 import app.shixing.client.legacy.childObj
@@ -337,33 +341,44 @@ private fun Tile(
     owned: Boolean,
     expiry: Long?,
     modifier: Modifier = Modifier,
+    style: CardStyle? = null,
     onClick: () -> Unit,
 ) {
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             Modifier
                 .fillMaxWidth()
-                .height(84.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(Brush.linearGradient(listOf(top, bottom)))
+                .height(96.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFF07080D))
                 .border(
                     width = if (selected) 2.dp else 1.dp,
                     color = if (selected) MaterialTheme_color.accent else Color(0x14FFFFFF),
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(12.dp),
                 )
                 .clickable(enabled = owned, onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {
+            // 网页那边每一格就是这张卡的小样，不是一块纯色
+            if (style != null) {
+                MiniFace(style, Modifier.fillMaxSize().padding(5.dp))
+            } else {
+                Box(Modifier.fillMaxSize().padding(5.dp).clip(RoundedCornerShape(8.dp)).background(Brush.linearGradient(listOf(top, bottom))))
+            }
+            if (!owned) {
+                Box(Modifier.fillMaxSize().background(Color(0x99000000)))
+                Text("未拥有", fontSize = 10.sp, color = Color(0x99FFFFFF))
+            }
             if (selected) {
                 Box(
                     Modifier
-                        .size(22.dp)
-                        .clip(RoundedCornerShape(11.dp))
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp)
+                        .size(18.dp)
+                        .clip(RoundedCornerShape(9.dp))
                         .background(MaterialTheme_color.accent),
                     contentAlignment = Alignment.Center,
-                ) { Text("✓", fontSize = 13.sp, color = Color(0xFF04121F), fontWeight = FontWeight.Bold) }
-            } else if (!owned) {
-                Text("未拥有", fontSize = 11.sp, color = ink.copy(alpha = 0.3f))
+                ) { Text("✓", fontSize = 11.sp, color = Color(0xFF04121F), fontWeight = FontWeight.Bold) }
             }
         }
         Spacer(Modifier.height(4.dp))
@@ -387,4 +402,59 @@ private fun expiryText(until: Long?): String? {
     val hours = left / 3_600_000L
     if (hours >= 1) return "剩 $hours 小时"
     return "剩 " + (left / 60_000L).coerceAtLeast(1) + " 分钟"
+}
+
+/** 一格卡面小样：只画底、内框、光效，不放文字。 */
+@Composable
+private fun MiniFace(st: CardStyle, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(9.dp)
+    Box(
+        modifier
+            .clip(shape)
+            .background(Brush.linearGradient(st.frameColors, start = Offset.Zero, end = Offset(240f, 340f))),
+    ) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .padding(st.framePad.coerceAtMost(5f).dp)
+                .clip(RoundedCornerShape(7.dp))
+                .background(Brush.linearGradient(listOf(st.top, st.bottom), start = Offset.Zero, end = Offset(200f, 320f))),
+        ) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.radialGradient(
+                            listOf(st.glow.copy(alpha = 0.45f), Color.Transparent),
+                            center = Offset(120f, 90f),
+                            radius = 220f,
+                        ),
+                    ),
+            )
+            when (st.fx) {
+                CardStyle.Fx.NOVA -> Canvas(Modifier.fillMaxSize()) {
+                    val cx = size.width * 0.5f
+                    val cy = size.height * 0.34f
+                    for (i in 0 until 28) {
+                        val a = (i / 28f) * 6.28318f
+                        drawLine(
+                            color = Color(0xFFFFD27A).copy(alpha = 0.25f),
+                            start = Offset(cx, cy),
+                            end = Offset(cx + kotlin.math.cos(a) * size.width * 0.7f, cy + kotlin.math.sin(a) * size.width * 0.7f),
+                            strokeWidth = 1.2f,
+                        )
+                    }
+                    drawCircle(Color(0xFFFFF3D0), radius = size.width * 0.13f, center = Offset(cx, cy))
+                }
+
+                CardStyle.Fx.ECLIPSE -> Canvas(Modifier.fillMaxSize()) {
+                    val cx = size.width * 0.5f
+                    val cy = size.height * 0.34f
+                    drawCircle(Color(0xE6FFF6E6), radius = size.width * 0.2f, center = Offset(cx, cy), style = Stroke(width = 1.6f))
+                }
+
+                else -> Unit
+            }
+        }
+    }
 }

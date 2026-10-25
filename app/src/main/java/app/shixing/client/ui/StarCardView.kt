@@ -2,6 +2,7 @@ package app.shixing.client.ui
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -30,6 +31,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -38,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.shixing.client.data.CardDeco
 import app.shixing.client.data.CardScores
+import app.shixing.client.data.CardStyle
 import app.shixing.client.data.DecoCatalog
 import app.shixing.client.data.Groups
 import app.shixing.client.data.MyCard
@@ -99,14 +102,19 @@ fun StarCardFront(
 ) {
     val shape = RoundedCornerShape(26.dp)
     val st = DecoCatalog.style(face.deco?.face)
-    val ring = Brush.linearGradient(listOf(st.frame, st.frame.copy(alpha = 0.45f)))
+    // 网页的内框是一圈金属/镭射渐变（.mt-mc-frame），厚度各档不同
+    val ring = Brush.linearGradient(
+        st.frameColors,
+        start = Offset.Zero,
+        end = Offset(700f, 1050f),
+    )
 
     Box(
         modifier
             .aspectRatio(0.70f)
             .clip(shape)
             .background(Color(0xFF0A0C13))
-            .border(2.dp, ring, shape),
+            .border((st.framePad + 1.2f).dp, ring, shape),
     ) {
         if (photoUrl != null) {
             AsyncImage(
@@ -183,6 +191,9 @@ fun StarCardFront(
             )
         }
 
+        // 各档位自带的贴面光效（网页是 .mt-face-fx 那层 screen 混合）
+        StyleFx(st.fx)
+
         Box(
             Modifier
                 .fillMaxSize()
@@ -199,7 +210,7 @@ fun StarCardFront(
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .padding(start = 14.dp, end = 14.dp, top = 12.dp),
+                    .padding(start = (13 + st.framePad).dp, end = (13 + st.framePad).dp, top = (10 + st.framePad).dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
@@ -235,7 +246,7 @@ fun StarCardFront(
 
             Spacer(Modifier.weight(1f))
 
-            Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+            Column(Modifier.padding(start = (15 + st.framePad).dp, end = (15 + st.framePad).dp, bottom = (14 + st.framePad).dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         "来自" + GroupName.of(face.group),
@@ -256,13 +267,25 @@ fun StarCardFront(
                         )
                     }
                 }
-                Text(
-                    face.name,
-                    fontSize = 26.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = st.ink,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
+                if (st.nameColors != null) {
+                    Text(
+                        face.name,
+                        style = androidx.compose.ui.text.TextStyle(
+                            brush = Brush.linearGradient(st.nameColors),
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.Bold,
+                        ),
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                } else {
+                    Text(
+                        face.name,
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = st.ink,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
                 face.line?.takeIf { it.isNotBlank() }?.let {
                     Text(
                         it,
@@ -559,5 +582,121 @@ object GroupName {
         "L" -> "聊天星群"
         "A" -> "万象星群"
         else -> "星星"
+    }
+}
+
+/** 各档位卡面的贴面光效，对应网页 `.mt-face-fx` 那一层。 */
+@Composable
+private fun StyleFx(fx: CardStyle.Fx) {
+    if (fx == CardStyle.Fx.NONE) return
+    Canvas(Modifier.fillMaxSize()) {
+        val w = size.width
+        val h = size.height
+        val cx = w * 0.5f
+        val cy = h * 0.33f
+        when (fx) {
+            CardStyle.Fx.NOVA -> {
+                val rays = 72
+                for (i in 0 until rays) {
+                    val a = (i / rays.toFloat()) * 6.28318f
+                    val len = w * 0.66f
+                    drawLine(
+                        color = Color(0xFFFFD27A).copy(alpha = if (i % 2 == 0) 0.20f else 0.10f),
+                        start = Offset(cx, cy),
+                        end = Offset(cx + kotlin.math.cos(a) * len, cy + kotlin.math.sin(a) * len * 1.5f),
+                        strokeWidth = if (i % 2 == 0) 3f else 1.4f,
+                    )
+                }
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        listOf(Color(0xFFFFF6DC), Color(0x66FFC46B), Color(0x00FFC46B)),
+                        center = Offset(cx, cy),
+                        radius = w * 0.22f,
+                    ),
+                    radius = w * 0.22f,
+                    center = Offset(cx, cy),
+                )
+            }
+
+            CardStyle.Fx.ECLIPSE -> {
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        listOf(Color(0x00FFFFFF), Color(0x33FFF0DC), Color(0x00FFE0B8)),
+                        center = Offset(cx, cy),
+                        radius = w * 0.42f,
+                    ),
+                    radius = w * 0.42f,
+                    center = Offset(cx, cy),
+                )
+                drawCircle(Color(0xE6FFF6E6), radius = w * 0.235f, center = Offset(cx, cy), style = Stroke(width = 2.2f))
+                drawCircle(Color(0x55FFE7C4), radius = w * 0.265f, center = Offset(cx, cy), style = Stroke(width = 6f))
+            }
+
+            CardStyle.Fx.AURORA -> {
+                drawRect(
+                    Brush.linearGradient(
+                        listOf(
+                            Color(0x007CF5C4), Color(0x667CF5C4), Color(0x006EC6FF), Color(0x55B78CFF), Color(0x00FF6B9A),
+                        ),
+                        start = Offset(0f, 0f),
+                        end = Offset(w, h * 0.9f),
+                    ),
+                )
+            }
+
+            CardStyle.Fx.COMET -> {
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        listOf(Color(0xFFFFFFFF), Color(0x88C8EBFF), Color(0x00A0D7FF)),
+                        center = Offset(w * 0.76f, h * 0.15f),
+                        radius = w * 0.16f,
+                    ),
+                    radius = w * 0.16f,
+                    center = Offset(w * 0.76f, h * 0.15f),
+                )
+                drawLine(
+                    color = Color(0x99E6F6FF),
+                    start = Offset(w * 0.76f, h * 0.15f),
+                    end = Offset(w * 0.10f, h * 0.62f),
+                    strokeWidth = 2.5f,
+                )
+                drawLine(
+                    color = Color(0x44E6F6FF),
+                    start = Offset(w * 0.78f, h * 0.17f),
+                    end = Offset(w * 0.18f, h * 0.58f),
+                    strokeWidth = 7f,
+                )
+            }
+
+            CardStyle.Fx.CHART -> {
+                val step = 11f
+                var x = 0f
+                while (x < w) {
+                    drawLine(Color(0x558CD8FF), Offset(x, 0f), Offset(x, h * 0.045f), 1.2f)
+                    drawLine(Color(0x558CD8FF), Offset(x, h), Offset(x, h * 0.955f), 1.2f)
+                    x += step
+                }
+                var y = 0f
+                while (y < h) {
+                    drawLine(Color(0x558CD8FF), Offset(0f, y), Offset(w * 0.045f, y), 1.2f)
+                    drawLine(Color(0x558CD8FF), Offset(w, y), Offset(w * 0.955f, y), 1.2f)
+                    y += step
+                }
+            }
+
+            CardStyle.Fx.ROSETTE -> {
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        listOf(Color(0x55FF8FB8), Color(0x22C42A66), Color(0x00FF6F9C)),
+                        center = Offset(cx, cy + h * 0.05f),
+                        radius = w * 0.55f,
+                    ),
+                    radius = w * 0.55f,
+                    center = Offset(cx, cy + h * 0.05f),
+                )
+            }
+
+            else -> Unit
+        }
     }
 }
