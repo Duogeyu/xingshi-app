@@ -14,8 +14,8 @@ android {
         applicationId = "app.shixing.client"
         minSdk = 26
         targetSdk = 34
-        versionCode = 3
-        versionName = "1.0.0"
+        versionCode = 4
+        versionName = "1.0.1"
         resourceConfigurations += listOf("zh", "zh-rCN")
         buildConfigField("String", "CLIENT_ID", "\"app_f91c740693315463\"")
         buildConfigField("String", "API_BASE", "\"https://vrcc.cc/api/v1/\"")
