@@ -26,8 +26,8 @@ import org.junit.Test
  * 1. 每个请求都带 X-Client；2. 路径一定是 /api/v1/ 下的相对路径；
  * 3. 错误体里的 error/need/Retry-After 能被解析出来，`429` 按 Retry-After 等；
  * 4. `404 gone` 是令牌失效，别的 `*_gone` 不是；
- * 5. 官方示例回答（`v1-examples.json`，取自开放接口文档的 examples/responses.json）
- *    原样能解析，把弃用字段删掉以后也能解析。
+ * 5. 官方示例回答（`v1-examples.json`，原样取自开放接口文档 1.14.0 的 examples/responses.json，
+ *    只留拾星用到的 19 个）原样能解析，把弃用字段删掉以后也能解析。
  */
 class ApiContractTest {
 
