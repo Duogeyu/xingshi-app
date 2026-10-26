@@ -1,12 +1,27 @@
 package app.shixing.client.data
 
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+
 /**
  * 把「官方限流 + 本地配额 + 令牌存储」收在一层里，UI 只能经由它访问网络，
  * 避免某个页面绕过限流直接打接口。
  */
 class Repository(private val store: TokenStore) {
 
-    val api: VrccClient = VrccClient { store.token() }
+    private val _lost = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    /** 令牌失效（`404 gone`）：本机令牌已经删掉，界面回到连接页让玩家重新连接。 */
+    val lost: SharedFlow<Unit> = _lost.asSharedFlow()
+
+    val api: VrccClient = VrccClient(onGone = { forget() }) { store.token() }
+
+    private suspend fun forget() {
+        store.clear()
+        Throttle.clearPauses()
+        _lost.tryEmit(Unit)
+    }
 
     suspend fun storeToken(): String? = store.token()
 
@@ -38,6 +53,7 @@ class Repository(private val store: TokenStore) {
     suspend fun disconnect() {
         runCatching { api.disconnect() }
         store.clear()
+        Throttle.clearPauses()
     }
 
     // ---- 设备授权（推荐路径）：客户端出码，玩家在网页上同意 ----

@@ -16,7 +16,7 @@
 
 | 页面 | 数据来源 | 说明 |
 | --- | --- | --- |
-| 地图榜 | `GET /boards/maps` | 满 5 人评分才进榜；显示均分、评分人数、口碑档位 |
+| 地图榜 | `GET /boards/maps` | 有评分就进榜；显示均分、评分人数、口碑档位 |
 | 提醒 | `GET /me/notifications`、`GET /me/notifications/recent` | 最近一天的最后五条，可标记已读 |
 | 星轨 | `GET /me/crossings` | 在同一个房间遇到的星，`why=hide` 时整块不显示 |
 | 连上 | `GET /me/mutuals` | 互相连上的星，含对方公开的 VRChat 名字 |
@@ -42,7 +42,7 @@
 
 - **登记**：已在「我的资料 → 第三方客户端 → 我登记的应用」登记，`client_id = app_f91c740693315463`（`BuildConfig.CLIENT_ID`，每个请求都带 `X-Client`）。登记时拿到的密钥 `sec_…` 属于网站/OAuth 流程，**不在 App 里、不进仓库**。
 - **只走官方接口**：`VrccClient` 里 `require(!path.startsWith("http"))` 硬拦绝对地址，基址写死 `https://vrcc.cc/api/v1/`。
-- **限流**：`Throttle` 每分钟 120 次上限 + 每个接口的最小间隔；四个个人接口合计每天 300 次，在 `TokenStore.takeDailyQuota()` 里本地先扣，宁可少问。
+- **限流**：`Throttle` 每分钟 120 次上限 + 每个接口的最小间隔；四个个人接口合计每天 300 次，在 `TokenStore.takeDailyQuota()` 里本地先扣，宁可少问。收到 `429` 按 `Retry-After` 等（每分钟的限制 60 秒，每天的次数到北京时间零点），带 `RateLimit-*` 的接口用到 0 次也等到重置，在那之前这个接口不再发请求。
 - **写操作只在点击时**：打分只能从评分弹窗的「提交」按钮发出，不做后台批量。
 - **令牌**：只存本机 DataStore，只发给 `vrcc.cc`，断开即删；不转存、不上传。
 - **权限**：只申请 `INTERNET`、`ACCESS_NETWORK_STATE`、`POST_NOTIFICATIONS`。
@@ -65,7 +65,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb install -r app/build/outputs/apk/release/app-release.apk
 ```
 
-单元测试用 MockWebServer 钉住契约（`X-Client` 头、相对路径、错误码 `need`）：
+单元测试用 MockWebServer 钉住契约（`X-Client` 头、相对路径、错误码和 `need`、`Retry-After`、`gone`，以及弃用字段缺了照样能解析）：
 
 ```bash
 gradle testDebugUnitTest
@@ -81,7 +81,7 @@ app/src/main/java/app/shixing/client/
 │   ├── Models.kt            /api/v1 的返回形状（@Serializable）
 │   ├── VrccClient.kt        唯一出口，负责头、令牌、错误解析
 │   ├── TokenStore.kt        DataStore：令牌、游标、本地日配额
-│   ├── Throttle.kt          每分钟限流 + 每接口最小间隔
+│   ├── Throttle.kt          每分钟限流 + 每接口最小间隔 + 按 Retry-After 暂停
 │   └── Repository.kt        把限流/配额/存储收成一层
 ├── notify/
 │   └── ReminderNotifier.kt  通知渠道与通知内容（不发请求）
@@ -110,7 +110,7 @@ app/src/main/java/app/shixing/client/
 - 首次运行只记基线，不弹历史提醒；
 - 每次先扣本地日配额，扣不到就跳过（后台 15 分钟 ≈ 每天 96 次，给前台刷新留余量）；
 - 只把 `id > 游标` 的条目合成一条通知，点开回到 App；
-- 遇到 `429 too_soon` 退避重试，遇到 `gone`（令牌被别处顶掉）弹一次「连接已失效」后静默。
+- 遇到 `429` 按 `Retry-After` 等到下一轮（旧版服务器不带这个头时交给 WorkManager 退避）；遇到 `gone`（令牌失效：断开了、重新授权过，或 90 天没调用自动断开）删掉本机令牌，弹一次「连接已失效」后静默。
 
 官方文档建议按返回的 `every`（60 秒）轮询——那是网页端前台的节奏；后台照做会把电池和每天 300 次的配额一起烧掉，所以这里刻意放慢。
 

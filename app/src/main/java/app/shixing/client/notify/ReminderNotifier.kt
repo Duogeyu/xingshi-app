@@ -97,7 +97,7 @@ object ReminderNotifier {
         runCatching { NotificationManagerCompat.from(context).notify(ID_REMINDERS, n) }
     }
 
-    /** 令牌失效（在别处连上了）：只提醒一次，之后后台轮询自然什么都不做。 */
+    /** 令牌失效（断开了、重新授权过，或 90 天没用）：只提醒一次，令牌已删，之后后台轮询直接返回。 */
     @SuppressLint("MissingPermission")
     fun expired(context: Context) {
         ensureChannel(context)
@@ -116,7 +116,7 @@ object ReminderNotifier {
         val n = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notify)
             .setContentTitle("连接已失效")
-            .setContentText("你在别处连上了这颗星，点开重新连接")
+            .setContentText("断开过或 90 天没用，点开重新连接")
             .setContentIntent(pi)
             .setAutoCancel(true)
             .build()

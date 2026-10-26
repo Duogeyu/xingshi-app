@@ -15,7 +15,7 @@ data class Me(
     val vrc: String? = null,
 )
 
-/** 地图榜 / 查地图：`{"board":"maps","min":5,"maps":[...],"at":...}` */
+/** 地图榜 / 查地图：`{"board":"maps","min":1,"maps":[...],"at":...}` */
 @Serializable
 data class Boards(
     val board: String? = null,
@@ -129,7 +129,10 @@ data class Mutuals(
     val n: Int? = null,
 )
 
-/** 「所在的地图」与打分接口返回同一个形状。 */
+/**
+ * 「所在的地图」与打分接口返回同一个形状。
+ * 回答里的 `can` / `need` 已弃用（谁都能打分，恒为 true / null，2026-12-26 起不再返回），这里不读。
+ */
 @Serializable
 data class MyMap(
     val world: String,
@@ -140,8 +143,6 @@ data class MyMap(
     val avg: Double? = null,
     val raters: Int? = null,
     val mine: Int? = null,
-    val can: Boolean = false,
-    val need: String? = null,
     val words: String? = null,
     val wordsOk: String? = null,
     val img: String? = null,
@@ -171,7 +172,6 @@ data class MyCard(
     val line: String = "",
     val group: String? = null,
     val groupName: String? = null,
-    val vibe: String? = null,
     val scores: CardScores? = null,
     val intro: String? = null,
     val photo: Boolean = false,
@@ -190,7 +190,6 @@ data class StarCard(
     val line: String? = null,
     val group: String? = null,
     val groupName: String? = null,
-    val vibe: String? = null,
     val photo: Boolean = false,
     val deco: JsonObject? = null,
     val intro: String? = null,
