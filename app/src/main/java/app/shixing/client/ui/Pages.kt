@@ -301,14 +301,8 @@ fun MePage(
     s: UiState,
     onOpenBoard: () -> Unit,
     onOpenChat: (Long) -> Unit,
-    onOpenLegacy: (String) -> Unit = {},
-    onOpenCard: () -> Unit = {},
-    onOpenDeco: () -> Unit = {},
     photoUrl: String? = null,
     photoGrid: android.graphics.Bitmap? = null,
-    decoOverride: kotlinx.serialization.json.JsonObject? = null,
-    currentWorld: String? = null,
-    currentWorldName: String? = null,
 ) {
     Column(
         Modifier
@@ -316,58 +310,6 @@ fun MePage(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp),
     ) {
-
-        // 去过但还没打分的地图：提醒一次，当天可关掉
-        currentWorld?.let { world ->
-            val rated = s.myMaps.any { it.world == world }
-            val ctx = androidx.compose.ui.platform.LocalContext.current
-            var hidden by remember(world) {
-                mutableStateOf(app.shixing.client.data.RateHint.dismissed(ctx, world))
-            }
-            if (!rated && !hidden) {
-                Spacer(Modifier.height(10.dp))
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0x1F4DB4FF))
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            "你在「${currentWorldName ?: "这张地图"}」，还没打分",
-                            fontSize = 12.5.sp,
-                            color = MaterialTheme_color.ink,
-                        )
-                        Spacer(Modifier.height(2.dp))
-                        Text("打一分只要几秒，也能帮到后面的人。", fontSize = 11.sp, color = MaterialTheme_color.ink2)
-                    }
-                    Text(
-                        "去打分",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme_color.accent,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(10.dp))
-                            .clickable { vm.openMap(world) { } }
-                            .padding(horizontal = 8.dp, vertical = 5.dp),
-                    )
-                    Text(
-                        "关闭",
-                        fontSize = 12.sp,
-                        color = MaterialTheme_color.ink2,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(10.dp))
-                            .clickable {
-                                app.shixing.client.data.RateHint.dismiss(ctx, world)
-                                hidden = true
-                            }
-                            .padding(horizontal = 8.dp, vertical = 5.dp),
-                    )
-                }
-            }
-        }
         Spacer(Modifier.height(10.dp))
         ScreenTitle("我的")
 
@@ -377,10 +319,7 @@ fun MePage(
         s.card?.let { c ->
             Spacer(Modifier.height(12.dp))
             FlippableStarCard(
-                face = c.toFace().let { f ->
-                    // 装扮是自己改的，v1 的卡不带 deco，这里用网页接口那份覆盖
-                    app.shixing.client.data.DecoCatalog.parse(decoOverride)?.let { f.copy(deco = it) } ?: f
-                },
+                face = c.toFace(),
                 photoUrl = photoUrl,
                 photoGrid = photoGrid,
                 modifier = Modifier.fillMaxWidth(),
@@ -388,26 +327,6 @@ fun MePage(
             )
         }
 
-        Spacer(Modifier.height(12.dp))
-        BoxCard {
-            Text(
-                "网页功能",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme_color.ink,
-            )
-            Text(
-                "装扮和仓库这些官方接口还没开放，走的是网页自己的接口。",
-                fontSize = 11.sp,
-                color = MaterialTheme_color.ink3,
-                modifier = Modifier.padding(top = 4.dp, bottom = 10.dp),
-            )
-            LegacyRow("装扮", "卡面、卡背") { onOpenDeco() }
-            // 其余三项还没验收完，先藏起来；清单见 docs/TODO.md
-            if (WebFeatures.ALL) LegacyRow("我的仓库", "贴纸包、卡面、星尘") { onOpenLegacy("bag") }
-            if (WebFeatures.ALL) LegacyRow("兑换码", "兑换贴纸包和装扮") { onOpenLegacy("redeem") }
-            if (WebFeatures.ALL) LegacyRow("账号与设备", "看登录的设备、踢掉别人") { onOpenLegacy("account") }
-        }
         // 私聊列表也要照片：这里给每个会话的对方拉一次头像
         androidx.compose.runtime.LaunchedEffect(s.threads.map { it.peer?.n }) {
             s.threads.forEach { th ->
@@ -1032,28 +951,4 @@ fun WritePostCard(vm: MainViewModel) {
             }
         }
     }
-}
-
-@Composable
-private fun LegacyRow(title: String, sub: String, onClick: () -> Unit) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
-            .padding(vertical = 9.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(title, fontSize = 14.sp, color = MaterialTheme_color.ink)
-            Text(sub, fontSize = 11.sp, color = MaterialTheme_color.ink3, modifier = Modifier.padding(top = 2.dp))
-        }
-        Text("›", fontSize = 18.sp, color = MaterialTheme_color.ink3)
-    }
-}
-
-/** 「网页功能」里还没验收完的入口：先关掉，清单见 docs/TODO.md。 */
-object WebFeatures {
-    /** 我的仓库 / 兑换码 / 账号与设备 */
-    const val ALL = false
 }

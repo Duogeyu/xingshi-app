@@ -205,10 +205,7 @@ class MainViewModel(private val repo: Repository) : ViewModel() {
 
     fun refreshToday() = viewModelScope.launch {
         runCatching { repo.today() }
-            .onSuccess { t ->
-                android.util.Log.d("shixing-deco", "v1 today deco=" + t.cards.take(4).map { c -> c.n to c.deco })
-                _state.update { it.copy(today = t, pageErrors = it.pageErrors - "today") }
-            }
+            .onSuccess { t -> _state.update { it.copy(today = t, pageErrors = it.pageErrors - "today") } }
             .onFailure { e -> _state.update { it.copy(pageErrors = it.pageErrors + ("today" to describe(e))) } }
     }
 
