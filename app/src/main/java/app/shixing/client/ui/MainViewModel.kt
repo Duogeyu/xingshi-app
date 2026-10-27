@@ -310,10 +310,33 @@ class MainViewModel(private val repo: Repository) : ViewModel() {
             .onFailure { e -> onDone(describe(e)) }
     }
 
-    /** 取 TA 的照片（只在卡上显示，不落盘）。 */
-    fun loadPhoto(n: Long) = viewModelScope.launch {
-        val p = repo.photo(n) ?: return@launch
-        _state.update { it.copy(cardPhotos = it.cardPhotos + (n to p)) }
+    /** 正在拿的照片：同一颗星同时只问一次（列表里同一个人出现好几次也一样）。 */
+    private val photoLoading = HashSet<Long>()
+
+    /** 拿不到照片的星（没有 photos 权限、16–17 星池、出错）：这段时间内不再问。 */
+    private val photoMissedAt = HashMap<Long, Long>()
+
+    /**
+     * 取 TA 的照片（只在卡上显示，不落盘）。每张照片算两次「第二份读」
+     * （拿链接一次、打开图片一次），所以同一颗星不并发重复问，拿不到的 10 分钟内不再问。
+     */
+    fun loadPhoto(n: Long) {
+        val missed = photoMissedAt[n]
+        if (missed != null && System.currentTimeMillis() - missed < PHOTO_RETRY_MS) return
+        if (!photoLoading.add(n)) return
+        viewModelScope.launch {
+            try {
+                val p = repo.photo(n)
+                if (p == null) {
+                    photoMissedAt[n] = System.currentTimeMillis()
+                } else {
+                    photoMissedAt.remove(n)
+                    _state.update { it.copy(cardPhotos = it.cardPhotos + (n to p)) }
+                }
+            } finally {
+                photoLoading.remove(n)
+            }
+        }
     }
 
     /** 打开一段私聊；返回 null 表示失败了（错误已经进 pageErrors）。 */
@@ -486,6 +509,8 @@ class MainViewModel(private val repo: Repository) : ViewModel() {
     fun showHint(text: String) = _state.update { it.copy(hint = text) }
 
     companion object {
+        private const val PHOTO_RETRY_MS = 10 * 60_000L
+
         fun factory(repo: Repository) = viewModelFactory {
             initializer { MainViewModel(repo) }
         }

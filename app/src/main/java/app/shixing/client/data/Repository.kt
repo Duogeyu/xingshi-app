@@ -98,23 +98,6 @@ class Repository(private val store: TokenStore) {
         return api.myMap(world)
     }
 
-    /**
-     * 轮询提醒。第一次不带 since（只拿 last），之后带上次的 last；
-     * 两次之间至少 25 秒，优先按服务器给的 every。
-     */
-    suspend fun pollNotifications(): Notifications {
-        val last = store.lastNotif()
-        val sinceLast = System.currentTimeMillis() - store.lastPollAt()
-        val gap = if (last == null) 1_000L else 25_000L
-        if (sinceLast in 0 until gap) kotlinx.coroutines.delay(gap - sinceLast)
-        if (!store.takeDailyQuota()) throw ApiException(429, "local_quota")
-        Throttle.acquire("notifications", 25_000)
-        val r = api.notifications(last)
-        r.last?.let { store.setLastNotif(it) }
-        store.setLastPollAt(System.currentTimeMillis())
-        return r
-    }
-
     /** 只在玩家点「提交」时调用。 */
     suspend fun rate(world: String, score: Int, text: String?): MyMap {
         Throttle.acquire("rate:$world", 5_000)
@@ -156,8 +139,9 @@ class Repository(private val store: TokenStore) {
         return api.say(n, text)
     }
 
-    /** TA 的照片：清晰图给 url，没连上只给 grid（N×N 像素格）。 */
+    /** TA 的照片：清晰图给 url，没连上只给 grid（N×N 像素格）。和别的接口一样走限流。 */
     suspend fun photo(n: Long): CardPhoto? = runCatching {
+        Throttle.acquire("photo:$n", 3_000)
         PhotoParser.parse(api.photo(n, 2))
     }.getOrNull()
 
