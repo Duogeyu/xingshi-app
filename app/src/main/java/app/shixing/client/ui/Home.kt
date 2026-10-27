@@ -262,7 +262,7 @@ private fun ConnectPage(vm: MainViewModel, s: UiState) {
         Spacer(Modifier.height(12.dp))
         Text("拾星", fontSize = 34.sp, fontWeight = FontWeight.Bold, color = MaterialTheme_color.accent)
         Spacer(Modifier.height(4.dp))
-        Text("一个只读官方接口的第三方客户端", fontSize = 13.sp, color = MaterialTheme_color.ink2)
+        Text("只用官方开放接口的第三方客户端（非官方）", fontSize = 13.sp, color = MaterialTheme_color.ink2)
         Spacer(Modifier.height(18.dp))
 
         BoxCard {

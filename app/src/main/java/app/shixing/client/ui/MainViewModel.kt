@@ -71,7 +71,6 @@ class MainViewModel(private val repo: Repository) : ViewModel() {
 
     init {
         checkUpdate(manual = false)
-        viewModelScope.launch { syncStickerToken() }
         viewModelScope.launch { repo.lost.collect { sessionLost() } }
         viewModelScope.launch { SignedImages.expired.collect { imageExpired(it) } }
         viewModelScope.launch {
@@ -84,10 +83,6 @@ class MainViewModel(private val repo: Repository) : ViewModel() {
                 loadBoards()
             }
         }
-    }
-
-    private suspend fun syncStickerToken() {
-        app.shixing.client.ui.StickerImages.token = repo.storeToken()
     }
 
     /** 令牌失效（`404 gone`）：Repository 已经删了本机令牌，这里回到连接页。 */

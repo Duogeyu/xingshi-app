@@ -758,7 +758,13 @@ fun ChatPage(
                     val t = input
                     input = ""
                     vm.send(peer, t) { err ->
-                        if (err.isNotEmpty()) vm.showHint(err) else bump++
+                        if (err.isEmpty()) {
+                            bump++
+                        } else {
+                            vm.showHint(err)
+                            // 没发出去（比如没过检查）：把草稿放回去，免得玩家重打。
+                            if (input.isEmpty()) input = t
+                        }
                     }
                 },
                 enabled = input.isNotBlank(),
