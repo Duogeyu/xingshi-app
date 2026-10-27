@@ -107,7 +107,6 @@ fun PostsScreen(vm: MainViewModel, s: UiState) {
             BoardPage(
                 maps = s.boards,
                 onBack = {},
-                onRate = { world -> vm.openMap(world) { m -> m?.let { vm.showHint("已拿到这张图的分") } } },
                 vm = vm,
                 showBack = false,
             )

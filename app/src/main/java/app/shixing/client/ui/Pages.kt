@@ -558,12 +558,25 @@ fun MePage(
 fun BoardPage(
     maps: List<BoardMap>,
     onBack: () -> Unit,
-    onRate: (String) -> Unit,
     vm: MainViewModel,
     showBack: Boolean = true,
 ) {
     var sel by remember { mutableStateOf<MyMap?>(null) }
     var busy by remember { mutableStateOf(false) }
+
+    /** 先拿「我在这张图上的分」，再打开打分框；`off` 的图不给这位玩家看，也就不打开。 */
+    fun open(world: String) {
+        if (busy) return
+        busy = true
+        vm.openMap(world) { r ->
+            busy = false
+            when {
+                r == null -> Unit // 出错时 openMap 已经把原因放进提示条
+                r.off -> vm.showHint("这张地图不给你打分")
+                else -> sel = r
+            }
+        }
+    }
 
     Column(
         Modifier
@@ -589,7 +602,7 @@ fun BoardPage(
         }
         Spacer(Modifier.height(6.dp))
         Text(
-            "有人评分就会进榜；点一张地图可以看我给它的分。",
+            "有人评分就会进榜；点一张地图可以看我给它的分、给它打分。",
             fontSize = 12.sp,
             color = MaterialTheme_color.ink2,
         )
@@ -597,7 +610,7 @@ fun BoardPage(
 
         LazyColumn(Modifier.fillMaxSize()) {
             items(maps) { m ->
-                Surface2 {
+                Surface2(onClick = { open(m.world) }) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             "#${m.rank ?: "-"}",
@@ -658,13 +671,20 @@ fun BoardPage(
 }
 
 @Composable
-private fun Surface2(content: @Composable () -> Unit) {
+private fun Surface2(onClick: (() -> Unit)? = null, content: @Composable () -> Unit) {
     androidx.compose.material3.Surface(
         color = MaterialTheme_color.card,
         shape = RoundedCornerShape(14.dp),
         border = BorderStroke(1.dp, MaterialTheme_color.line),
         modifier = Modifier.fillMaxWidth(),
-    ) { Box(Modifier.padding(12.dp)) { content() } }
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+                .padding(12.dp),
+        ) { content() }
+    }
 }
 
 // ---------------- 打分框 ----------------

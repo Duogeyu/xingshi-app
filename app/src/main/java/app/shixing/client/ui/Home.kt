@@ -146,7 +146,6 @@ fun Home(vm: MainViewModel) {
                 boardOpen -> BoardPage(
                     maps = state.boards,
                     onBack = { boardOpen = false },
-                    onRate = { world -> vm.openMap(world) { } },
                     vm = vm,
                 )
                 chatPeer != null -> ChatPage(

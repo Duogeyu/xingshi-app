@@ -440,7 +440,7 @@ class MainViewModel(private val repo: Repository) : ViewModel() {
             runCatching { repo.rate(world, score, text) }
                 .onSuccess { m ->
                     _state.update { it.copy(loading = false) }
-                    refreshAll()
+                    refreshMaps()
                     onDone("已记录：你的评分 ${m.mine ?: score}")
                 }
                 .onFailure { e ->
@@ -448,6 +448,12 @@ class MainViewModel(private val repo: Repository) : ViewModel() {
                     onDone(describe(e))
                 }
         }
+
+    /** 打完分只刷新和地图有关的两份：我打过的地图、地图榜。 */
+    private fun refreshMaps() = viewModelScope.launch {
+        runCatching { repo.myMaps() }.onSuccess { m -> _state.update { it.copy(myMaps = m.maps) } }
+        runCatching { repo.boards() }.onSuccess { b -> _state.update { it.copy(boards = b.maps) } }
+    }
 
     fun clearHint() = _state.update { it.copy(hint = null) }
 
