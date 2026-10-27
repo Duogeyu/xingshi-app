@@ -16,12 +16,20 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.concurrent.TimeUnit
 
-/** 官方接口返回的错误。`error` 是文档里那套错误码。 */
+/**
+ * 官方接口返回的错误。`error` 是文档里那套错误码。
+ * - `need`：权限错误（`scope`、`scope_unreviewed`）缺的那项权限；
+ * - `retryAfter`：`429` 的 `Retry-After`（秒），过了这么久再试；
+ * - `say` / `until`：停站（`503 stop`）的说明和预计恢复的时间（毫秒）。
+ */
 class ApiException(
     val status: Int,
     val error: String,
     val why: String? = null,
     val need: String? = null,
+    val retryAfter: Long? = null,
+    val say: String? = null,
+    val until: Long? = null,
 ) : Exception("HTTP $status $error")
 
 /**
@@ -30,10 +38,15 @@ class ApiException(
  * 合规约束（官方《使用要求》）：
  * - 每个请求都带 `X-Client`，标识在 BuildConfig.CLIENT_ID 里；
  * - 只允许相对路径，基址写死 https://vrcc.cc/api/v1/，令牌不可能被发到别处；
- * - 写操作只由玩家点击触发，这里不排队、不重试、不批量。
+ * - 写操作只由玩家点击触发，这里不排队、不重试、不批量；
+ * - `429` 按 `Retry-After` 等：在那之前这个接口不再发请求（见 [Throttle.pause]）。
+ *
+ * [onGone]：收到 `404 gone`（令牌失效：玩家断开了、同一个客户端又授权了一次，
+ * 或 90 天没调用自动断开），或本机已经没有令牌时调用，由上层删掉本机令牌、让玩家重新连接。
  */
 class VrccClient(
     private val base: String = BuildConfig.API_BASE,
+    private val onGone: suspend () -> Unit = {},
     private val token: suspend () -> String?,
 ) {
 
@@ -67,7 +80,11 @@ class VrccClient(
             .header("X-Client", BuildConfig.CLIENT_ID)
             .header("Accept", "application/json")
         if (authed) {
-            val t = token() ?: throw ApiException(401, "token_missing")
+            // 本机已经没有令牌（比如后台提醒收到 gone 时删掉了）：和 gone 一样回到连接页。
+            val t = token() ?: run {
+                onGone()
+                throw ApiException(401, "token_missing")
+            }
             b.header("Authorization", "Bearer $t")
         }
         when (method) {
@@ -78,12 +95,18 @@ class VrccClient(
         return b.build()
     }
 
-    private suspend fun errorOf(status: Int, text: String): ApiException {
+    private fun errorOf(status: Int, text: String, retryAfter: String?): ApiException {
         val obj = runCatching { json.parseToJsonElement(text).jsonObject }.getOrNull()
-        val err = obj?.get("error")?.jsonPrimitive?.contentOrNullSafe() ?: "http_$status"
-        val why = obj?.get("why")?.jsonPrimitive?.contentOrNullSafe()
-        val need = obj?.get("need")?.jsonPrimitive?.contentOrNullSafe()
-        return ApiException(status, err, why, need)
+        fun str(k: String) = runCatching { obj?.get(k)?.jsonPrimitive?.contentOrNullSafe() }.getOrNull()
+        return ApiException(
+            status = status,
+            error = str("error") ?: "http_$status",
+            why = str("why"),
+            need = str("need"),
+            retryAfter = retryAfter?.trim()?.toLongOrNull()?.takeIf { it >= 0 },
+            say = str("say"),
+            until = str("until")?.toLongOrNull(),
+        )
     }
 
     private suspend fun <T> call(
@@ -93,10 +116,28 @@ class VrccClient(
         authed: Boolean,
         ser: DeserializationStrategy<T>,
     ): T = withContext(Dispatchers.IO) {
+        // 按接口记：服务器说过「等到某时再来」的，到点之前不发请求，直接回同一个错误。
+        val key = method + " " + path.substringBefore('?')
+        Throttle.paused(key)?.let { (leftMs, error) ->
+            throw ApiException(429, error, retryAfter = (leftMs + 999) / 1000)
+        }
         val req = buildRequest(method, path, body, authed)
         http.newCall(req).execute().use { resp ->
             val text = resp.body?.string().orEmpty()
-            if (!resp.isSuccessful) throw errorOf(resp.code, text)
+            if (!resp.isSuccessful) {
+                val e = errorOf(resp.code, text, resp.header("Retry-After"))
+                if (e.status == 429 && e.error in WAIT_ERRORS && e.retryAfter != null) {
+                    Throttle.pause(key, e.retryAfter * 1000, e.error)
+                }
+                if (e.status == 404 && e.error == "gone") onGone()
+                throw e
+            }
+            // 每天有次数的接口带 RateLimit-*：这是今天最后一次了，就等到重置再问。
+            if (resp.header("RateLimit-Remaining")?.trim() == "0") {
+                resp.header("RateLimit-Reset")?.trim()?.toLongOrNull()?.let {
+                    Throttle.pause(key, it * 1000, "too_many")
+                }
+            }
             json.decodeFromString(ser, text)
         }
     }
@@ -121,19 +162,10 @@ class VrccClient(
 
     // ---- 设备授权（RFC 8628，推荐）----
 
+    /** JSON 正文里的 `scope` 一直都认；回 `400 invalid_scope` 是权限写错了，换写法再问也一样。 */
     suspend fun deviceCode(scope: String): DeviceCode {
         val body = buildJsonObject { put("scope", JsonPrimitive(scope)) }.toString()
-        return try {
-            call("POST", "device/code", body, false, DeviceCode.serializer())
-        } catch (e: ApiException) {
-            // 现网有的版本不认 JSON 体里的 scope（回 400 bad_request），退一步改成查询串。
-            if (e.status == 400) {
-                val q = java.net.URLEncoder.encode(scope, "UTF-8")
-                call("POST", "device/code?scope=$q", null, false, DeviceCode.serializer())
-            } else {
-                throw e
-            }
-        }
+        return call("POST", "device/code", body, false, DeviceCode.serializer())
     }
 
     /**
@@ -268,7 +300,7 @@ class VrccClient(
         )
     }
 
-    /** 点亮 / 取消点亮。需要 `posts.write`。 */
+    /** 点亮 / 取消点亮。需要 `posts.write`。`on` 用 JSON 的 true / false，`false` 就是取消。 */
     suspend fun light(id: Long, on: Boolean = true): JsonObject =
         call(
             "POST",
@@ -290,6 +322,12 @@ class VrccClient(
 
     private companion object {
         val JSON_TYPE = "application/json; charset=utf-8".toMediaType()
+
+        /**
+         * 带 `Retry-After` 时整个接口一起等的码：问得太快、次数用完。
+         * `quota`、`fof_day` 这类只管某一种连线，不能把整个接口停掉。
+         */
+        val WAIT_ERRORS = setOf("too_many", "too_soon")
     }
 }
 

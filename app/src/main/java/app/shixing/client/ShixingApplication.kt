@@ -3,12 +3,19 @@ package app.shixing.client
 import android.app.Application
 import android.content.Context
 import app.shixing.client.data.Repository
+import app.shixing.client.data.SignedImages
 import app.shixing.client.data.TokenStore
 import app.shixing.client.legacy.LegacyClient
 import app.shixing.client.legacy.LegacyKey
+import coil.EventListener
+import coil.ImageLoader
+import coil.ImageLoaderFactory
+import coil.network.HttpException
+import coil.request.ErrorResult
+import coil.request.ImageRequest
 import kotlinx.serialization.json.JsonObject
 
-class ShixingApplication : Application() {
+class ShixingApplication : Application(), ImageLoaderFactory {
 
     companion object {
         /** 全局 Application 上下文：更新检查这种不需要 Activity 的地方用它。 */
@@ -27,6 +34,17 @@ class ShixingApplication : Application() {
         repo = Repository(TokenStore(this))
         probe()
     }
+
+    /** Coil 的默认加载器，多一个监听：签名图片过期（404）时让界面重新拿地址。 */
+    override fun newImageLoader(): ImageLoader =
+        ImageLoader.Builder(this)
+            .eventListener(object : EventListener {
+                override fun onError(request: ImageRequest, result: ErrorResult) {
+                    val url = request.data as? String ?: return
+                    SignedImages.failed(url, (result.throwable as? HttpException)?.response?.code)
+                }
+            })
+            .build()
 
     private fun probe() {
         val key = LegacyKey.get(this) ?: return

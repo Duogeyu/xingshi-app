@@ -11,6 +11,7 @@ import app.shixing.client.data.MutualStar
 import app.shixing.client.data.NotificationItem
 import app.shixing.client.data.Post
 import app.shixing.client.data.Repository
+import app.shixing.client.data.SignedImages
 import app.shixing.client.data.Thread
 import app.shixing.client.data.TodayResp
 import androidx.lifecycle.ViewModel
@@ -69,6 +70,8 @@ class MainViewModel(private val repo: Repository) : ViewModel() {
     init {
         checkUpdate(manual = false)
         viewModelScope.launch { syncStickerToken() }
+        viewModelScope.launch { repo.lost.collect { sessionLost() } }
+        viewModelScope.launch { SignedImages.expired.collect { imageExpired(it) } }
         viewModelScope.launch {
             val token = repo.storeToken()
             if (token != null) {
@@ -83,6 +86,41 @@ class MainViewModel(private val repo: Repository) : ViewModel() {
 
     private suspend fun syncStickerToken() {
         app.shixing.client.ui.StickerImages.token = repo.storeToken()
+    }
+
+    /** 令牌失效（`404 gone`）：Repository 已经删了本机令牌，这里回到连接页。 */
+    private fun sessionLost() {
+        _state.update {
+            if (!it.session) it
+            else UiState(session = false, boards = it.boards, hint = "连接已失效（断开过，或 90 天没用），请重新连接")
+        }
+    }
+
+    /** 上次因为图片过期重新拿地址的时间：一分钟内又打不开，就不是过期而是看不到了。 */
+    private val reloadedAt = HashMap<String, Long>()
+
+    /** 签名图片（玩家照片、星友圈的图）过期：重新拿一次地址，令牌没事。 */
+    private fun imageExpired(url: String) {
+        val s = _state.value
+        val star = s.cardPhotos.entries.firstOrNull { it.value.url == url }?.key
+        val key = when {
+            star != null -> "photo:$star"
+            s.posts.any { it.imgUrl == url } -> "posts"
+            else -> return
+        }
+        val now = System.currentTimeMillis()
+        if (now - (reloadedAt[key] ?: 0L) < 60_000L) {
+            // 刚拿到的地址也打不开：授权、权限或这条内容已经不在了，照片退回颜色格，不再重试。
+            if (star != null) {
+                _state.update { st ->
+                    val p = st.cardPhotos[star] ?: return@update st
+                    st.copy(cardPhotos = st.cardPhotos + (star to p.copy(url = null)))
+                }
+            }
+            return
+        }
+        reloadedAt[key] = now
+        if (star != null) loadPhoto(star) else refreshPosts()
     }
 
     private fun loadBoards() = viewModelScope.launch {
@@ -439,17 +477,25 @@ class MainViewModel(private val repo: Repository) : ViewModel() {
     }
 }
 
-/** 把接口错误翻成人话，顺带把官方的 need/why 提示带出来。 */
+/** 把接口错误翻成人话，顺带把官方的 need/why/Retry-After 提示带出来。 */
 fun describe(e: Throwable): String {
     val api = e as? ApiException
     if (api != null) {
+        val wait = api.retryAfter?.let(::waitText)
         return when (api.error) {
-            "too_soon" -> "问得太快了，等一分钟再试"
-            "too_many" -> "今天的次数用完了，明天再来"
-            "busy" -> "今天输错的连接码太多，连接功能明天恢复"
+            "too_soon" -> "问得太快了，${wait ?: "过一会儿"}再试"
+            "too_many" -> when {
+                // 每分钟的限制只让等几十秒；每天的次数要等到北京时间零点。
+                api.retryAfter != null && api.retryAfter <= 300 -> "问得太快了，${wait}再试"
+                wait != null -> "今天的次数用完了，${wait}恢复"
+                else -> "今天的次数用完了，明天再来"
+            }
+            "busy" -> if (api.status == 409) "星卡还在生成，过一会儿再试" else "今天输错的连接码太多，连接功能明天恢复"
             "local_quota" -> "本地日配额已用满（每天 300 次），明天再来"
             "code" -> "连接码不对、已过期或已经用过"
             "token_missing", "gone" -> "连接已失效，请重新连接"
+            "stop" -> (api.say?.takeIf { it.isNotBlank() } ?: "星遇同频在维护") +
+                (api.until?.let { "，预计 ${untilText(it)} 恢复" } ?: "")
             "authorization_pending" -> "还在等你同意"
             "access_denied" -> "你在网页上点了取消"
             "expired_token" -> "连接码过期了，重新获取一枚"
@@ -458,29 +504,39 @@ fun describe(e: Throwable): String {
                 "客户端标识没被接受（${api.error}）。到网页「我的资料 → 第三方客户端」确认「我登记的应用」里还有「拾星」，名字改过会回到未审核"
             "client_mismatch" -> "客户端标识和取码时不一致"
             "scope_unreviewed" -> "敏感权限还没通过审核，这个账号暂时不能同意"
-            "map_not_went" -> when (api.need) {
-                "verify" -> "先验证 VRChat 账号才能打分"
-                "friend" -> "先同意机器人的好友请求"
-                "go" -> "要先在这张地图上待一会儿"
-                else -> "现在还不能给这张地图打分"
-            }
-            "map_elsewhere" -> "机器人看到你现在在别的地图"
             "map_off", "xd_world_no" -> "这张地图不给打分"
             "yq_words" -> "短评没通过检查" + (api.why?.let { "：$it" } ?: "")
             "yq_empty" -> "短评不能只有标点或空白"
             "scope" -> "这个页面要的权限还没有：${api.need ?: "未知"}（重新连接时把权限都同意上）"
             "not_offered" -> "网页现在不允许连这颗星"
-            "quota" -> "这一轮已经连满了，等下一轮"
+            "quota" -> "这一轮已经连满了，" + (wait?.let { "${it}是下一轮" } ?: "等下一轮")
             "fof_day", "yq_link_day", "cross_link_day" -> "今天这一类连线的次数用完了"
             "star_gone" -> "这颗星已经不在了"
             "msg_not_mutual" -> "只有互相连上的人才能私聊"
             "msg_words" -> "消息没通过检查" + (api.why?.let { "：$it" } ?: "")
             "msg_empty" -> "消息不能是空的"
             "bad_target" -> "连不到这颗星"
-            else -> "请求失败（${api.status} ${api.error}）"
+            "method" -> "拾星用错了请求方法（405），请更新到最新版"
+            // 不认识的码按状态码处理（官方：v1 只做加法，以后可能有新的错误码）。
+            else -> when {
+                api.status == 429 -> "问得太快了，${wait ?: "过一会儿"}再试"
+                api.status >= 500 -> "服务器出错了，稍后再试（${api.status}）"
+                else -> "请求失败（${api.status} ${api.error}）"
+            }
         }
     }
     return e.message ?: "网络不太顺，稍后再试"
+}
+
+/** 停站预计恢复的时间（毫秒）。 */
+private fun untilText(at: Long): String =
+    java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.CHINA).format(java.util.Date(at))
+
+/** `Retry-After` 的秒数说成人话：「30 秒后」「5 分钟后」「3 小时后」。 */
+private fun waitText(sec: Long): String = when {
+    sec < 60 -> "${sec.coerceAtLeast(1)} 秒后"
+    sec < 3600 -> "${(sec + 59) / 60} 分钟后"
+    else -> "${(sec + 3599) / 3600} 小时后"
 }
 
 /** 自己的星编号：1.8.x 的 me/card 多了 n，照片要按它取才清晰。 */

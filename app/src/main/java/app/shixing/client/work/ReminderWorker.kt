@@ -47,10 +47,13 @@ class ReminderWorker(
             Result.success()
         } catch (e: ApiException) {
             when (e.error) {
-                // 官方要求：两个提醒接口至少间隔 25 秒，太频繁会 429。
-                "too_soon", "too_many" -> Result.retry()
-                // 令牌被别处顶掉，或者玩家已经断开：提醒一次即可。
+                // 官方要求：两个提醒接口至少间隔 25 秒，太频繁会 429。带 Retry-After 时
+                // VrccClient 已经让这个接口停到那个时候，这一轮就不重试，等下一轮（15 分钟后）；
+                // 旧版服务器的 too_soon 不带这个头，才交给 WorkManager 退避。
+                "too_soon", "too_many" -> if (e.retryAfter != null) Result.success() else Result.retry()
+                // 令牌失效（断开、重新授权、90 天没用）：删掉本机令牌，提醒一次，之后这里直接返回。
                 "gone", "token_missing" -> {
+                    store.clear()
                     ReminderNotifier.expired(applicationContext)
                     Result.success()
                 }

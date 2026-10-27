@@ -8,7 +8,9 @@ import kotlinx.coroutines.sync.withLock
  * 客户端侧的限流。官方要求：
  * - 每个网络地址合计每分钟 120 次左右；
  * - 轮询提醒两次之间至少 25 秒，建议按返回的 every（60 秒）；
- * - 星轨/互相连上/最近提醒/所在地图四个接口合计每颗星每天 300 次（见 TokenStore）。
+ * - 收到 `429` 按 `Retry-After` 等（见 [pause]）。
+ * 星轨/互相连上/最近提醒/所在地图四个接口本地另外合计每天 300 次（见 TokenStore）：这是 1.8.4 以前的官方上限，
+ * 现在官方是每个授权每天 1000 次，本地照旧从严。
  */
 object Throttle {
 
@@ -39,9 +41,31 @@ object Throttle {
         }
     }
 
-    /** 429 之后的退避：至少等一分钟，最多等十分钟。 */
-    suspend fun backoff(attempt: Int) {
-        val ms = minOf(60_000L * (1L shl attempt.coerceIn(0, 4)), 600_000L)
-        delay(ms)
+    /** 接口 → (到什么时候, 当时的错误码)。 */
+    private val pausedUntil = HashMap<String, Pair<Long, String>>()
+
+    /**
+     * 服务器让等的（`429` 的 `Retry-After`，或 `RateLimit-Remaining` 到 0）：在那之前这个接口不再发请求。
+     * 每分钟的限制等 60 秒，每天的次数等到北京时间零点，不是一律一分钟。
+     */
+    fun pause(key: String, ms: Long, error: String) {
+        if (ms <= 0) return
+        synchronized(pausedUntil) { pausedUntil[key] = (System.currentTimeMillis() + ms) to error }
+    }
+
+    /** 还要等多少毫秒和当时的错误码；不用等时是 null。 */
+    fun paused(key: String): Pair<Long, String>? {
+        synchronized(pausedUntil) {
+            val (until, error) = pausedUntil[key] ?: return null
+            val left = until - System.currentTimeMillis()
+            if (left > 0) return left to error
+            pausedUntil.remove(key)
+            return null
+        }
+    }
+
+    /** 换了令牌（断开、重新连接）就从头算：每天的次数是按授权算的。 */
+    fun clearPauses() {
+        synchronized(pausedUntil) { pausedUntil.clear() }
     }
 }

@@ -670,7 +670,7 @@ fun BoardPage(
         }
         Spacer(Modifier.height(6.dp))
         Text(
-            "满 5 人评分才会进榜；点一张地图可以看我给它的分。",
+            "有人评分就会进榜；点一张地图可以看我给它的分。",
             fontSize = 12.sp,
             color = MaterialTheme_color.ink2,
         )
@@ -760,49 +760,38 @@ fun RateDialog(map: MyMap, busy: Boolean, onDismiss: () -> Unit, onSubmit: (Int,
         containerColor = MaterialTheme_color.card,
         title = { Text(map.name ?: "这张地图", fontSize = 16.sp, color = MaterialTheme_color.ink) },
         text = {
+            // 2026-10-24 起谁都能打分：不再看 can / need（已弃用，恒为 true / null）。
             Column {
-                val need = when (map.need) {
-                    "verify" -> "先在网页上验证 VRChat 账号才能打分。"
-                    "friend" -> "先同意「VRCC的小助手」的好友请求。"
-                    "go" -> "要在这张地图上待一会儿才能打分。"
-                    else -> null
-                }
-                if (!map.can && need != null) {
-                    Text(need, fontSize = 13.sp, color = MaterialTheme_color.ink2)
-                } else {
-                    Text("你给这张图打几分？", fontSize = 13.sp, color = MaterialTheme_color.ink2)
-                    Spacer(Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        (1..5).forEach { n ->
-                            ScorePill(n, score == n) { score = n }
-                        }
+                Text("你给这张图打几分？", fontSize = 13.sp, color = MaterialTheme_color.ink2)
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    (1..5).forEach { n ->
+                        ScorePill(n, score == n) { score = n }
                     }
-                    Spacer(Modifier.height(6.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        (6..10).forEach { n ->
-                            ScorePill(n, score == n) { score = n }
-                        }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    androidx.compose.material3.OutlinedTextField(
-                        value = text,
-                        onValueChange = { text = it.take(30) },
-                        placeholder = { Text("写一句短评（可选，30 字内）", fontSize = 12.sp, color = MaterialTheme_color.ink2) },
-                        modifier = Modifier.fillMaxWidth(),
-                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp, color = MaterialTheme_color.ink),
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text("${text.length} / 30", fontSize = 11.sp, color = MaterialTheme_color.ink2)
                 }
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    (6..10).forEach { n ->
+                        ScorePill(n, score == n) { score = n }
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                androidx.compose.material3.OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it.take(30) },
+                    placeholder = { Text("写一句短评（可选，30 字内）", fontSize = 12.sp, color = MaterialTheme_color.ink2) },
+                    modifier = Modifier.fillMaxWidth(),
+                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp, color = MaterialTheme_color.ink),
+                )
+                Spacer(Modifier.height(4.dp))
+                Text("${text.length} / 30", fontSize = 11.sp, color = MaterialTheme_color.ink2)
             }
         },
         confirmButton = {
-            if (map.can || map.need == null) {
-                TextButton(
-                    enabled = !busy,
-                    onClick = { onSubmit(score, if (text.isBlank()) "" else text) },
-                ) { Text("提交", color = MaterialTheme_color.accent) }
-            }
+            TextButton(
+                enabled = !busy,
+                onClick = { onSubmit(score, if (text.isBlank()) "" else text) },
+            ) { Text("提交", color = MaterialTheme_color.accent) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消", color = MaterialTheme_color.ink2) } },
     )
