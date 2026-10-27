@@ -183,7 +183,7 @@ class Repository(private val store: TokenStore) {
     }
 
     /** 点亮/取消。写操作只在玩家点击时调用。 */
-    suspend fun light(id: Long, on: Boolean = true): kotlinx.serialization.json.JsonObject {
+    suspend fun light(id: Long, on: Boolean = true): LightResp {
         Throttle.acquire("light", 2_000)
         return api.light(id, on)
     }
@@ -201,13 +201,15 @@ class Repository(private val store: TokenStore) {
 
     companion object {
         /**
-         * 要申请的权限。
+         * 要申请的权限：只要界面上真的用到的（《使用要求》第 10 条，同意页会逐项列出）。
          * - 普通：profile、card、maps、notifications
-         * - 敏感：crossings、mutuals、maps.rate、today、inbox、link、chat、chat.send、posts
+         * - 敏感：maps.rate（打分）、crossings、mutuals、today、inbox、link（连线、说一句）、
+         *   chat、chat.send、posts、posts.write（点亮、发动态）、photos
          *   未审核的自助登记应用里，敏感权限只有登记人本人能同意。
+         * 以后做了举报 / 隐藏再加 safety；vrchat、maps.write 现在没有用到的地方。
          */
         const val DEFAULT_SCOPE =
             "profile card maps maps.rate notifications crossings mutuals today inbox link chat chat.send posts " +
-                "photos vrchat safety maps.write"
+                "posts.write photos"
     }
 }

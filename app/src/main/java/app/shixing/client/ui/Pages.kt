@@ -187,112 +187,6 @@ private fun whyText(why: String?): String? = when (why) {
     else -> null
 }
 
-// ---------------- 星友圈 ----------------
-
-@Composable
-fun PostsPage(vm: MainViewModel, s: UiState) {
-    Column(
-        Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp),
-    ) {
-        Spacer(Modifier.height(10.dp))
-        ScreenTitle("星友圈", "大家发在星遇同频里的动态")
-        PageError(vm, s, "posts")
-        Spacer(Modifier.height(10.dp))
-        WritePostCard(vm)
-        Spacer(Modifier.height(10.dp))
-        if (s.posts.isEmpty()) {
-            Empty("还没有动态。")
-        } else {
-            s.posts.forEach { p ->
-                BoxCard(tint = Color(Groups.color(p.author?.group))) {
-                    val who = p.author?.name ?: if (p.kind == "official") "星遇同频" else "一颗星"
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Avatar(who, p.author?.group, 32.dp)
-                        Spacer(Modifier.width(9.dp))
-                        Text(
-                            who,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme_color.ink,
-                        )
-                        p.author?.group?.let {
-                            Spacer(Modifier.width(6.dp))
-                            GroupPill(it)
-                        }
-                        Spacer(Modifier.weight(1f))
-                        Text(clock(p.at), fontSize = 11.sp, color = MaterialTheme_color.ink2)
-                    }
-                    p.text?.takeIf { it.isNotBlank() }?.let {
-                        Spacer(Modifier.height(8.dp))
-                        Text(it, fontSize = 13.sp, color = MaterialTheme_color.ink, lineHeight = 20.sp)
-                    }
-                    p.imgUrl?.let { url ->
-                        Spacer(Modifier.height(10.dp))
-                        AsyncImage(
-                            model = url,
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 280.dp)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(MaterialTheme_color.card2),
-                        )
-                    }
-                    if (p.check == "wait" || p.check == "hidden") {
-                        Spacer(Modifier.height(6.dp))
-                        Pill(
-                            if (p.check == "wait") "审核中" else "未通过",
-                            Color(0x1FFFFFFF),
-                            MaterialTheme_color.ink2,
-                        )
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        val lit = p.lit
-                        Row(
-                            Modifier
-                                .clip(RoundedCornerShape(10.dp))
-                                .clickable { vm.light(p.id, true) }
-                                .padding(horizontal = 6.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(
-                                Icons.Filled.ThumbUp,
-                                contentDescription = "点亮",
-                                tint = if (lit > 0) MaterialTheme_color.accent else MaterialTheme_color.ink3,
-                                modifier = Modifier.size(14.dp),
-                            )
-                            Spacer(Modifier.width(5.dp))
-                            Text("$lit", fontSize = 12.sp, color = MaterialTheme_color.ink2)
-                        }
-                        Spacer(Modifier.width(16.dp))
-                        Text("评论 ${p.cmts}", fontSize = 12.sp, color = MaterialTheme_color.ink2)
-                        Spacer(Modifier.weight(1f))
-                        if (p.author != null && !p.mine) {
-                            Text(
-                                "连上",
-                                Modifier
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .clickable { vm.link(p.author!!.n, "yq", p.id) { m -> vm.showHint(m) } }
-                                    .background(Color(0x1F4DB4FF))
-                                    .padding(horizontal = 12.dp, vertical = 5.dp),
-                                fontSize = 12.sp,
-                                color = MaterialTheme_color.accent,
-                            )
-                        }
-                    }
-                }
-                Spacer(Modifier.height(10.dp))
-            }
-        }
-        Spacer(Modifier.height(24.dp))
-    }
-}
-
 // ---------------- 我的 ----------------
 
 @Composable
@@ -959,6 +853,8 @@ fun WritePostCard(vm: MainViewModel) {
                             if (msg == "ok") {
                                 text = ""
                                 open = false
+                            } else {
+                                vm.showHint(msg)
                             }
                         }
                     },

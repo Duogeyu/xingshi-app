@@ -48,7 +48,6 @@ import coil.compose.AsyncImage
 @Composable
 fun PostsScreen(vm: MainViewModel, s: UiState) {
     var sub by remember { mutableStateOf(0) }
-    var filter by remember { mutableStateOf(0) } // 0 全部 1 好友 2 我的
     var showWrite by remember { mutableStateOf(false) }
 
     androidx.compose.runtime.LaunchedEffect(s.posts.map { it.author?.n }) {
@@ -128,14 +127,15 @@ fun PostsScreen(vm: MainViewModel, s: UiState) {
                     .background(Color(0x0FFFFFFF))
                     .padding(3.dp),
             ) {
-                listOf("全部", "好友", "我的").forEachIndexed { idx, label ->
-                    val on = filter == idx
+                // 接口的 f：all 全部、friend 星友的、mine 自己的，由服务器筛。
+                listOf("all" to "全部", "friend" to "好友", "mine" to "我的").forEach { (key, label) ->
+                    val on = s.postsFilter == key
                     Box(
                         Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(99.dp))
                             .background(if (on) Color(0x1FFFFFFF) else Color.Transparent)
-                            .clickable { filter = idx }
+                            .clickable { if (!on) vm.refreshPosts(key) }
                             .padding(vertical = 6.dp),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -156,11 +156,7 @@ fun PostsScreen(vm: MainViewModel, s: UiState) {
             Spacer(Modifier.height(12.dp))
             PageError(vm, s, "posts")
 
-            val list = when (filter) {
-                2 -> s.posts.filter { it.mine == true }
-                1 -> s.posts.filter { it.mine }
-                else -> s.posts
-            }
+            val list = s.posts
             if (list.isEmpty()) {
                 Empty("还没有动态。")
             } else {
@@ -221,10 +217,10 @@ private fun PostCard(vm: MainViewModel, p: Post, photos: Map<Long, app.shixing.c
             Text(
                 "👍 ${p.lit}",
                 fontSize = 12.sp,
-                color = MaterialTheme_color.ink2,
+                color = if (p.litMe) MaterialTheme_color.accent else MaterialTheme_color.ink2,
                 modifier = Modifier
                     .clip(RoundedCornerShape(10.dp))
-                    .clickable { vm.light(p.id, true) }
+                    .clickable { vm.toggleLight(p.id) }
                     .padding(horizontal = 6.dp, vertical = 4.dp),
             )
             Spacer(Modifier.width(10.dp))
